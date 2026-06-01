@@ -1,0 +1,814 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kareen Loke | Premium Real Estate</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,700&display=swap" rel="stylesheet">
+
+  <style>
+    /* =========================================
+       1. GLOBAL THEME & APP FRAMEWORK
+    ========================================= */
+    :root {
+      --primary: #C8A96E; 
+      --primary-hover: #b5955b; 
+      --bg-dark: #0B1D3A; 
+      --bg-darker: #061124;
+      --bg-light: #F9F7F2; 
+      --text-main: #333333; 
+      --text-muted: #888888;
+      --card-bg: #ffffff;
+      --border-color: #e5dfd3;
+      --accent: #FF7F50; 
+      --success: #2E8B57;
+      --max-width: 600px; 
+    }
+    
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; color: var(--text-main); background: #e9e9e9; display: flex; justify-content: center; }
+    
+    .app-container { 
+      width: 100%; max-width: var(--max-width); background: var(--bg-light); 
+      min-height: 100vh; position: relative; overflow-x: hidden; padding-bottom: 80px; 
+      box-shadow: 0 0 40px rgba(0,0,0,0.1); display: flex; flex-direction: column; 
+    }
+    a { color: inherit; text-decoration: none; }
+    img { max-width: 100%; display: block; }
+    button { font-family: inherit; }
+    input { outline: none; }
+    
+    /* Header */
+    header { position: sticky; top: 0; z-index: 40; background: var(--bg-dark); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; }
+    .brand { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 20px; letter-spacing: 1px; color: var(--primary); }
+    .agent-profile { display: flex; align-items: center; gap: 10px; color: #fff; cursor: pointer; }
+    .agent-profile img { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--primary); object-fit: cover; object-position: top; }
+    .agent-info { display: flex; flex-direction: column; text-align: right; }
+    .agent-info span:first-child { font-weight: 600; font-size: 14px; }
+    .agent-info span:last-child { font-size: 10px; color: var(--primary); font-weight: 700; letter-spacing: 0.5px; }
+
+    /* Search Module Dashboard */
+    .search-module { background: var(--bg-darker); padding: 20px; color: #fff; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); z-index: 10;}
+    .search-tabs { display: flex; background: #fff; border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
+    .search-tabs button { flex: 1; padding: 12px 0; border: none; background: transparent; font-weight: 600; font-size: 13px; color: var(--text-main); cursor: pointer; transition: 0.2s; }
+    .search-tabs button:first-child { border-right: 1px solid #eee; }
+    .search-tabs button.active { background: var(--bg-light); color: var(--primary); border-bottom: 3px solid var(--primary); }
+    
+    .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+    .search-input-wrap { flex: 1; display: flex; background: #fff; border-radius: 8px; overflow: hidden; }
+    .search-input-wrap input { flex: 1; padding: 12px 16px; border: none; font-size: 14px; font-family: inherit; color: var(--text-main);}
+    .search-input-wrap button { background: transparent; border: none; padding: 0 16px; color: var(--bg-dark); font-size: 16px; cursor: pointer; }
+    .filter-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; width: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--primary); font-size: 18px; }
+
+    .price-range { margin-top: 10px; }
+    .price-range-labels { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: #bbb; margin-bottom: 8px; text-transform: uppercase; }
+    .price-range-labels span b { color: #fff; font-size: 13px; margin-left: 4px; }
+    .price-slider { width: 100%; appearance: none; height: 4px; border-radius: 4px; background: rgba(255,255,255,0.2); outline: none; }
+    .price-slider::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); border: 3px solid #fff; cursor: pointer; }
+
+    /* =========================================
+       2. ENHANCED FILTER (Bottom Sheet)
+    ========================================= */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; display: none; opacity: 0; transition: opacity 0.3s; }
+    .filter-sheet { position: fixed; bottom: -100%; left: 0; width: 100%; background: #fff; border-top-left-radius: 24px; border-top-right-radius: 24px; padding: 24px; z-index: 201; transition: bottom 0.3s cubic-bezier(0.1, 0.8, 0.2, 1); max-height: 85vh; overflow-y: auto; max-width: var(--max-width); margin: 0 auto; right: 0;}
+    .filter-sheet.active { bottom: 0; }
+    .modal-overlay.active { display: block; opacity: 1; }
+    .filter-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .filter-header h3 { font-family: 'Playfair Display', serif; font-size: 20px; margin: 0; color: var(--bg-dark); }
+    .close-btn { font-size: 24px; color: var(--text-muted); cursor: pointer; border: none; background: none; }
+    
+    .filter-group { margin-bottom: 20px; }
+    .filter-group label { display: block; font-size: 12px; font-weight: 700; color: var(--bg-dark); margin-bottom: 10px; text-transform: uppercase; }
+    .chip-container { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip { padding: 8px 14px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-light); font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: 0.2s; }
+    .chip.selected { background: var(--bg-dark); color: var(--primary); border-color: var(--bg-dark); }
+    .filter-action { position: sticky; bottom: 0; background: #fff; padding-top: 10px; margin-top: 10px; border-top: 1px solid var(--border-color); display: flex; gap: 12px;}
+    .filter-action button { flex: 1; padding: 14px; border-radius: 8px; font-weight: 700; font-size: 15px; border: none; cursor: pointer;}
+    .btn-reset { background: var(--bg-light); color: var(--text-main); border: 1px solid var(--border-color);}
+    .btn-apply { background: var(--primary); color: var(--bg-dark); }
+
+    /* =========================================
+       3. VIEWS CONTAINER & CAROUSELS
+    ========================================= */
+    .view-container { flex: 1; position: relative; }
+    .view-section { display: none; animation: fadeIn 0.3s; }
+    .view-section.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    
+    .section { padding: 24px 0 10px 20px; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; padding-right: 20px; margin-bottom: 16px; }
+    .section-header h2 { font-family: 'Playfair Display', serif; font-size: 20px; margin: 0; color: var(--bg-dark); }
+    
+    .carousel { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 20px; padding-right: 20px; scroll-snap-type: x mandatory; scrollbar-width: none; flex-wrap: nowrap; }
+    .carousel::-webkit-scrollbar { display: none; }
+    
+    .card { min-width: 280px; max-width: 280px; scroll-snap-align: start; background: var(--card-bg); border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid var(--border-color); overflow: hidden; position: relative; display: flex; flex-direction: column; cursor: pointer; }
+    .card-img { height: 180px; position: relative; background: #eee; }
+    .card-img img { width: 100%; height: 100%; object-fit: cover; }
+    .tag { position: absolute; top: 10px; left: 10px; background: rgba(11, 29, 58, 0.85); color: var(--primary); backdrop-filter: blur(4px); font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-transform: uppercase; pointer-events: none;}
+    .tag.completed { background: var(--success); color: #fff;}
+    
+    .compare-badge { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.9); border: 1px solid var(--border-color); color: var(--bg-dark); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; cursor: pointer; transition: 0.2s; z-index: 2;}
+    .compare-badge.selected { background: var(--primary); color: var(--bg-dark); border: none; }
+
+    .card-body { padding: 16px; flex: 1; pointer-events: none;}
+    .card-area { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+    .card-title { font-size: 16px; font-weight: 700; color: var(--bg-dark); margin: 0 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+    .card-price { color: var(--primary); font-weight: 700; font-size: 15px; margin: 0; }
+
+    #mapView { height: calc(100vh - 280px); width: 100%; background: #e0e0e0; position: relative; }
+    .empty-state-msg { padding: 0 20px; font-size: 13px; color: var(--text-muted); font-style: italic; }
+
+    /* =========================================
+       4. DYNAMIC COMPARE MATRIX
+    ========================================= */
+    #compareView { padding: 20px; background: #fff; min-height: 100%; padding-bottom: 100px; }
+    .compare-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; table-layout: fixed;}
+    .compare-table th { background: var(--bg-dark); color: var(--primary); padding: 12px; font-family: 'Playfair Display', serif; font-size: 14px; text-align: left;}
+    .compare-table td { padding: 14px 12px; border-bottom: 1px solid var(--border-color); color: var(--text-main); font-weight: 500; word-wrap: break-word;}
+    .compare-table tr:nth-child(even) { background: var(--bg-light); }
+    .compare-label { font-weight: 700; color: var(--bg-dark); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; width: 30%; }
+    .empty-compare { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 14px; }
+
+    /* =========================================
+       5. REAL-TIME SCHEDULE MATRIX & LEAD CAPTURE
+    ========================================= */
+    #scheduleView { padding: 24px; background: #fff; min-height: 100%; padding-bottom: 100px;}
+    .date-scroller { display: flex; gap: 12px; overflow-x: auto; margin-bottom: 24px; padding-bottom: 10px; scrollbar-width: none; }
+    .date-scroller::-webkit-scrollbar { display: none; }
+    .date-card { min-width: 70px; border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 10px; text-align: center; cursor: pointer; transition: 0.2s; background: var(--bg-light); }
+    .date-card.selected { background: var(--bg-dark); color: var(--primary); border-color: var(--bg-dark); box-shadow: 0 4px 10px rgba(11, 29, 58, 0.2); }
+    .date-day { font-size: 11px; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; color: var(--text-muted); }
+    .date-card.selected .date-day { color: #fff; opacity: 0.8;}
+    .date-num { font-size: 20px; font-weight: 700; font-family: 'Playfair Display', serif;}
+    
+    .time-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+    .time-slot { border: 1px solid var(--border-color); background: var(--bg-light); padding: 14px; border-radius: 8px; text-align: center; font-size: 14px; font-weight: 600; color: var(--bg-dark); cursor: pointer; transition: 0.2s; }
+    .time-slot.selected { background: var(--primary); color: var(--bg-dark); border-color: var(--primary); box-shadow: 0 4px 12px rgba(200, 169, 110, 0.3);}
+    .time-slot.disabled { opacity: 0.4; cursor: not-allowed; background: #eaeaea; color: #999; text-decoration: line-through;}
+    
+    .lead-form input { width: 100%; padding: 14px; margin-bottom: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; font-family: inherit; background: var(--bg-light); }
+    .lead-form input:focus { border-color: var(--bg-dark); background: #fff; }
+
+    /* Profile View */
+    #profileView { background: var(--bg-light); min-height: 100%; padding-bottom: 100px;}
+    .profile-hero { background: var(--bg-dark); color: #fff; padding: 40px 24px 30px; text-align: center; border-bottom-left-radius: 30px; border-bottom-right-radius: 30px; }
+    .profile-avatar { width: 120px; height: 120px; border-radius: 50%; border: 3px solid var(--primary); object-fit: cover; margin: 0 auto 16px; object-position: top;}
+    .profile-hero h1 { font-family: 'Playfair Display', serif; font-size: 26px; color: var(--primary); margin: 0 0 4px; }
+    .stats-row { display: flex; justify-content: center; gap: 24px; margin-top: 20px; }
+    .stat-box { text-align: center; }
+    .stat-num { font-size: 20px; font-weight: 700; color: var(--primary); font-family: 'Playfair Display', serif; }
+    .stat-label { font-size: 10px; color: #bbb; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+    .profile-section { padding: 24px; background: #fff; margin-top: -10px; border-top-left-radius: 30px; border-top-right-radius: 30px;}
+    .award-row { display: flex; justify-content: space-around; padding: 16px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 16px;}
+    .award-item { text-align: center; font-size: 10px; font-weight: 700; color: var(--bg-dark); width: 30%;}
+
+    /* =========================================
+       6. DETAIL OVERLAY & ACTION BAR FIX
+    ========================================= */
+    #detailView { 
+      background: #fff; position: fixed; top: 0; left: 0; right: 0; margin: 0 auto;
+      width: 100%; max-width: var(--max-width); height: 100vh; overflow-y: auto; z-index: 80; 
+      display: none; padding-bottom: 180px;
+    }
+    
+    .detail-header { position: sticky; top: 0; z-index: 85; background: var(--bg-dark); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .back-btn { display: flex; align-items: center; font-weight: 600; font-size: 14px; color: var(--primary); cursor: pointer; border: none; background: transparent;}
+    
+    .project-hero { position: relative; height: 320px; background: #eee;}
+    .project-hero img { width: 100%; height: 100%; object-fit: cover; }
+    .detail-section { padding: 24px; border-bottom: 1px solid var(--border-color); background: #fff; }
+    .detail-title { font-family: 'Playfair Display', serif; font-size: 24px; color: var(--bg-dark); margin: 0 0 8px; }
+    .detail-location { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
+    .detail-price { font-size: 24px; font-weight: 700; color: var(--primary); margin-bottom: 16px;}
+    
+    .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 13px; }
+    .details-item { display: flex; flex-direction: column; gap: 4px; }
+    .details-item span:first-child { color: var(--text-muted); }
+    .details-item span:last-child { font-weight: 600; color: var(--bg-dark); }
+    
+    .section-title { font-family: 'Playfair Display', serif; font-size: 18px; color: var(--bg-dark); margin: 0 0 16px; border-left: 3px solid var(--primary); padding-left: 8px;}
+    .media-container { width: 100%; border-radius: 12px; overflow: hidden; background: #000; margin-bottom: 16px; position: relative; padding-top: 75%; }
+    .media-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+    
+    .floorplan-img { border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+    .floorplan-img img { width: 100%; }
+    .doc-row { display: flex; align-items: center; justify-content: space-between; padding: 14px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 10px; font-size: 13px; font-weight: 600; cursor: pointer; background: var(--bg-light);}
+    
+    .calc-box { background: var(--bg-light); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); }
+    .calc-row { margin-bottom: 16px; }
+    .calc-row label { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--bg-dark); }
+    .calc-row input[type="range"] { width: 100%; accent-color: var(--primary); height: 4px; border-radius: 4px; appearance: none; background: #ddd; outline: none; }
+    .calc-result { font-size: 28px; font-weight: 700; color: var(--primary); text-align: center; margin-top: 10px; }
+
+    .detail-action-bar { 
+      position: fixed; bottom: 85px; left: 0; right: 0; margin: 0 auto;
+      width: 100%; max-width: var(--max-width); 
+      background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px);
+      padding: 12px 20px; display: flex; gap: 12px; 
+      z-index: 85; border-top: 1px solid var(--border-color);
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+    }
+    .detail-action-bar button { flex: 1; padding: 14px; border-radius: 12px; font-weight: 700; border: none; font-size: 15px; cursor: pointer;}
+    .btn-call { background: var(--bg-light); border: 1px solid var(--bg-dark); color: var(--bg-dark); }
+    .btn-whatsapp { background: var(--bg-dark); color: var(--primary); }
+
+    /* =========================================
+       7. GLOBAL BOTTOM NAVIGATION
+    ========================================= */
+    .bottom-nav { 
+      position: fixed; bottom: 0; left: 0; right: 0; margin: 0 auto;
+      width: 100%; max-width: var(--max-width); 
+      background: #fff; display: flex; justify-content: space-around; padding: 10px 0; 
+      box-shadow: 0 -5px 20px rgba(0,0,0,0.08); border-top: 1px solid #f0f0f0; z-index: 100; 
+    }
+    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted); font-size: 10px; font-weight: 600; text-transform: uppercase; cursor: pointer; transition: 0.2s;}
+    .nav-item.active { color: var(--primary); }
+    .nav-icon { font-size: 22px; line-height: 1; }
+    .nav-item.highlight { position: relative; top: -20px; }
+    .nav-item.highlight .nav-icon { background: var(--bg-dark); color: var(--primary); width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 6px 15px rgba(11, 29, 58, 0.3); border: 4px solid #fff; }
+
+  </style>
+</head>
+<body>
+  
+  <div class="app-container">
+    
+    <header id="mainHeader">
+      <div class="brand">KAREEN.</div>
+      <div class="agent-profile" onclick="switchNav('profile', document.getElementById('nav-profile'))">
+        <div class="agent-info"><span>Kareen Loke</span><span>REN 72111</span></div>
+        <img src="image.png" alt="Agent" onerror="this.src='https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=100&auto=format&fit=crop'">
+      </div>
+    </header>
+
+    <div class="search-module" id="globalSearch">
+      <div class="search-tabs">
+        <button id="tab-list-btn" class="active" onclick="switchInnerSearch('list', this)">List View</button>
+        <button id="tab-map-btn" onclick="switchInnerSearch('map', this)">Map View</button>
+      </div>
+
+      <div class="search-bar">
+        <div class="search-input-wrap">
+          <input type="text" id="searchInput" placeholder="Search projects, location..." onkeyup="applyAllFilters()">
+          <button onclick="applyAllFilters()">🔍</button>
+        </div>
+        <div class="filter-btn" onclick="openFilter()">⚲</div>
+      </div>
+
+      <div class="price-range">
+        <div class="price-range-labels">
+          <span>Max Budget</span>
+          <span><b id="priceLabel">RM 5.0M+</b></span>
+        </div>
+        <input type="range" id="priceSlider" class="price-slider" min="250000" max="5000000" step="50000" value="5000000" oninput="updatePriceSlider(this.value)">
+      </div>
+    </div>
+
+    <div class="view-container">
+      
+      <div id="searchView" class="view-section active">
+        <div id="listView">
+          <div class="section" style="padding-top: 0;">
+            <div class="section-header"><h2>Completed Projects</h2></div>
+            <div class="carousel" id="completedList">
+              <div class="empty-state-msg">Fetching cloud data...</div>
+            </div>
+          </div>
+          <div class="section">
+            <div class="section-header"><h2>Hot Selling Projects</h2></div>
+            <div class="carousel" id="hotList">
+               <div class="empty-state-msg">Fetching cloud data...</div>
+            </div>
+          </div>
+        </div>
+        <div id="mapView" style="display:none;">
+          <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d127482.68667469792!2d101.61694931816738!3d3.138503598150499!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31cc362bfc0402ce%3A0xdf1d50937a3c7bc!2sKuala%20Lumpur%2C%20Federal%20Territory%20of%20Kuala%20Lumpur!5e0!3m2!1sen!2smy!4v1717254516314!5m2!1sen!2smy" width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+        </div>
+      </div>
+
+      <div id="compareView" class="view-section">
+        <h2 style="font-family: 'Playfair Display', serif; color: var(--bg-dark); margin: 0 0 4px;">Compare Matrix</h2>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Select up to 3 properties from the list to analyze side-by-side.</p>
+        <div id="compareContainer">
+          <div class="empty-compare">No properties selected. Go back to search and click "➕ Compare" on a property card.</div>
+        </div>
+      </div>
+
+      <div id="scheduleView" class="view-section">
+        <h2 style="font-family: 'Playfair Display', serif; color: var(--bg-dark); margin-top: 0;">Schedule a Viewing</h2>
+        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 24px;">Synchronize with real-time availability calendar.</p>
+        
+        <label style="font-size: 13px; font-weight: 700; color: var(--bg-dark); margin-bottom: 12px; display: block;">Select Date (June 2026)</label>
+        <div class="date-scroller">
+          <div class="date-card selected" onclick="loadTimeSlots('2026-06-01', this)"><div class="date-day">Mon</div><div class="date-num">1</div></div>
+          <div class="date-card" onclick="loadTimeSlots('2026-06-02', this)"><div class="date-day">Tue</div><div class="date-num">2</div></div>
+          <div class="date-card" onclick="loadTimeSlots('2026-06-03', this)"><div class="date-day">Wed</div><div class="date-num">3</div></div>
+          <div class="date-card" onclick="loadTimeSlots('2026-06-04', this)"><div class="date-day">Thu</div><div class="date-num">4</div></div>
+        </div>
+
+        <label style="font-size: 13px; font-weight: 700; color: var(--bg-dark); margin-bottom: 12px; display: block;">Available Sessions</label>
+        <div class="time-grid" id="timeGrid">
+          <div class="time-slot" data-time="10:00 AM" onclick="selectTimeSlot(this)">10:00 AM</div>
+          <div class="time-slot" data-time="12:00 PM" onclick="selectTimeSlot(this)">12:00 PM</div>
+          <div class="time-slot" data-time="02:00 PM" onclick="selectTimeSlot(this)">02:00 PM</div>
+          <div class="time-slot" data-time="04:00 PM" onclick="selectTimeSlot(this)">04:00 PM</div>
+        </div>
+
+        <div class="lead-form" style="margin-bottom: 24px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+          <label style="font-size: 13px; font-weight: 700; color: var(--bg-dark); margin-bottom: 12px; display: block;">Your Contact Details</label>
+          <input type="text" id="clientName" placeholder="Full Name" required>
+          <input type="tel" id="clientPhone" placeholder="Phone Number (e.g., 0123456789)" required>
+        </div>
+
+        <button onclick="confirmBooking()" style="width: 100%; padding: 16px; background: var(--bg-dark); color: var(--primary); font-weight: 700; font-size: 16px; border: none; border-radius: 12px; cursor: pointer;">Confirm Slot</button>
+      </div>
+
+      <div id="profileView" class="view-section">
+        <div class="profile-hero">
+          <img src="image.png" alt="Kareen Loke" class="profile-avatar" onerror="this.src='https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=400&auto=format&fit=crop'">
+          <h1>Kareen Loke 陆嘉欣</h1>
+          <div style="font-size: 12px; font-weight: 600; letter-spacing: 1px; margin-bottom: 8px;">TEAM LEADER (REN 72111)</div>
+          <div style="font-size: 13px; opacity: 0.8;">Knight World Realty (M) Sdn Bhd</div>
+          <div class="stats-row">
+            <div class="stat-box"><div class="stat-num">5+</div><div class="stat-label">Years Exp</div></div>
+            <div class="stat-box"><div class="stat-num">120+</div><div class="stat-label">Asset Matches</div></div>
+            <div class="stat-box"><div class="stat-num">4.9★</div><div class="stat-label">Trust Index</div></div>
+          </div>
+        </div>
+        <div class="profile-section">
+          <div class="award-row">
+            <div class="award-item">🏆<br>100 Top Brands<br>Award 2021</div>
+            <div class="award-item">🥇<br>Honesty Enterprise<br>Award 2023</div>
+            <div class="award-item">⭐<br>Property Excellence<br>Award 2023</div>
+          </div>
+          <h3 style="font-family: 'Playfair Display', serif; color: var(--bg-dark); margin-bottom: 10px;">Executive Portfolio</h3>
+          <p style="font-size: 14px; line-height: 1.6; color: var(--text-muted); margin-bottom: 24px;">Specializing in premium tier Kuala Lumpur developments, international portfolio diversification strategies, MM2H structure executions, and bespoke high-density corporate consultation assets.</p>
+        </div>
+      </div>
+
+    </div> <div id="detailView">
+      <div class="detail-header">
+        <button class="back-btn" onclick="closeDetailView()">← Back Explore</button>
+        <div style="font-family: 'Playfair Display', serif; font-weight: 700; letter-spacing: 1px; color: var(--primary);">ASSET DATA</div>
+        <div style="width: 50px;"></div>
+      </div>
+      <div class="project-hero">
+        <div class="tag" style="top: 16px; left: 16px;" id="detail-tag">Details</div>
+        <img src="" alt="Property Data Image" id="detail-img" onerror="this.src='https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=800&auto=format&fit=crop'">
+      </div>
+      <div class="detail-section">
+        <h1 class="detail-title" id="detail-title">Project Title</h1>
+        <div class="detail-location" id="detail-location">📍 Location</div>
+        <div class="detail-price" id="detail-price">RM 0</div>
+        <h2 class="section-title">Property Basics</h2>
+        <div class="details-grid">
+          <div class="details-item"><span>Property Classification</span><span id="detail-type">Residential</span></div>
+          <div class="details-item"><span>Bedrooms Scheme</span><span id="detail-beds">2 - 3 Beds</span></div>
+          <div class="details-item"><span>Tenure Framework</span><span id="detail-tenure">Freehold</span></div>
+          <div class="details-item"><span>Size / Capacity</span><span id="detail-size">Low Density</span></div>
+        </div>
+      </div>
+
+      <div id="detail-vr-section" class="detail-section">
+        <h2 class="section-title">Virtual Projection Space (3D VR)</h2>
+        <div class="media-container">
+          <iframe id="detail-vr" src="" allowfullscreen allow="xr-spatial-tracking"></iframe>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <h2 class="section-title">Floor Layout Blueprint</h2>
+        <div class="floorplan-img">
+          <img src="https://images.unsplash.com/photo-1628624747186-a941c476b7ef?q=80&w=800&auto=format&fit=crop" alt="Structural Schematics">
+        </div>
+      </div>
+
+      <div class="detail-section" style="background: var(--bg-light);">
+        <h2 class="section-title">Mortgage Engine</h2>
+        <div class="calc-box">
+          <div class="calc-row">
+            <label><span>Purchase Capital (RM)</span> <b id="valPrice">550,000</b></label>
+            <input type="range" id="sliderPrice" min="300000" max="2000000" step="10000" value="550000" oninput="calculateMortgage()">
+          </div>
+          <div class="calc-row"><label><span>Down Payment (10%)</span> <b id="valDown">55,000</b></label></div>
+          <div class="calc-row">
+            <label><span>Years</span> <b id="valTenure">35</b></label>
+            <input type="range" id="sliderTenure" min="10" max="35" step="1" value="35" oninput="calculateMortgage()">
+          </div>
+          <div class="calc-row">
+            <label><span>Interest (%)</span> <b id="valInterest">4.0</b></label>
+            <input type="range" id="sliderInterest" min="2.5" max="6.0" step="0.1" value="4.0" oninput="calculateMortgage()">
+          </div>
+          <div style="margin-top: 20px; text-align: center;">
+            <div style="font-size: 12px; color: var(--text-muted);">Calculated Monthly</div>
+            <div class="calc-result">RM <span id="valMonthly">2,191</span></div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="detail-action-bar">
+        <button class="btn-call" onclick="window.location.href='tel:+60126501692'">☎ Direct Call</button>
+        <button class="btn-whatsapp" onclick="window.open('https://wa.me/60126501692', '_blank')">💬 WhatsApp</button>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modalOverlay" onclick="closeFilter()"></div>
+    <div class="filter-sheet" id="filterSheet">
+      <div class="filter-header"><h3>Advanced Matrix</h3><button class="close-btn" onclick="closeFilter()">×</button></div>
+      
+      <div class="search-input-wrap" style="margin-bottom: 20px; border: 1px solid var(--border-color);">
+        <input type="text" id="modalSearchInput" placeholder="Quick keyword search..." onkeyup="syncSearches(this.value)">
+      </div>
+
+      <div class="filter-group">
+        <label>Property Status</label>
+        <div class="chip-container" id="filter-status">
+          <div class="chip selected" data-value="Any">Any</div>
+          <div class="chip" data-value="Completed">Completed</div>
+          <div class="chip" data-value="Ready 2025">Ready soon</div>
+          <div class="chip" data-value="Launching Soon">New Launch</div>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label>Tenure Framework</label>
+        <div class="chip-container" id="filter-tenure">
+          <div class="chip selected" data-value="Any">Any</div>
+          <div class="chip" data-value="Freehold">Freehold</div>
+          <div class="chip" data-value="Leasehold">Leasehold</div>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label>Property Subcategory</label>
+        <div class="chip-container" id="filter-type">
+          <div class="chip selected" data-value="Any">Any</div>
+          <div class="chip" data-value="Residential">Residential</div>
+          <div class="chip" data-value="Commercial">Commercial</div>
+          <div class="chip" data-value="Land">Land</div>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <label>Bedrooms Configuration</label>
+        <div class="chip-container" id="filter-rooms">
+          <div class="chip selected" data-value="Any">Any Layout</div>
+          <div class="chip" data-value="1 Room">1 Unit</div>
+          <div class="chip" data-value="2 Rooms">2 Units</div>
+          <div class="chip" data-value="3+ Rooms">3+ Units</div>
+        </div>
+      </div>
+
+      <div class="filter-action">
+        <button class="btn-reset" onclick="resetAllFilters()">Reset</button>
+        <button class="btn-apply" onclick="applyFilterSheetAndClose()">Apply Setup</button>
+      </div>
+    </div>
+
+    <div class="bottom-nav" id="bottomNav">
+      <a class="nav-item active" id="nav-search" onclick="switchNav('search', this)"><span class="nav-icon">⌂</span><span>Search</span></a>
+      <a class="nav-item" id="nav-compare" onclick="switchNav('compare', this)"><span class="nav-icon">📊</span><span>Compare</span></a>
+      <a href="https://wa.me/60126501692" target="_blank" class="nav-item highlight">
+        <div class="nav-icon">💬<span style="position: absolute; top: 0; right: 0; background: var(--accent); color: #fff; font-size: 9px; padding: 2px 5px; border-radius: 10px; font-weight: 700; border: 2px solid #fff;">1</span></div>
+        <span style="color: var(--bg-dark);">Agent</span>
+      </a>
+      <a class="nav-item" id="nav-schedule" onclick="switchNav('schedule', this)"><span class="nav-icon">📅</span><span>Schedule</span></a>
+      <a class="nav-item" id="nav-profile" onclick="switchNav('profile', this)"><span class="nav-icon">👤</span><span>Profile</span></a>
+    </div>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // ==========================================
+    // 1. SUPABASE CORE & DATA PIPELINE
+    // ==========================================
+    const supabaseUrl = 'https://fryynuhukubqppilqpfk.supabase.co';
+    const supabaseKey = 'sb_publishable_GnK_xyRsCtIO7vtE9k-zPw_eSs4Erd0'; 
+    const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+    let globalPropertiesRegistry = []; // No more fake data
+    let compareListIds = []; 
+    let currentBookingDate = '2026-06-01'; 
+
+    async function executeCloudDataSync() {
+      try {
+        let { data: databasePayload, error } = await supabaseClient.from('properties').select('*');
+        if (error) throw error;
+        if (databasePayload && databasePayload.length > 0) {
+          globalPropertiesRegistry = databasePayload;
+        }
+      } catch (err) {
+        console.warn("Supabase fetch failed. Check network or table permissions.");
+      } finally {
+        applyAllFilters();
+      }
+    }
+
+    // ==========================================
+    // 2. SEARCH & FILTER ENGINE
+    // ==========================================
+    function applyAllFilters() {
+      const textQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+      const maxBudget = parseInt(document.getElementById('priceSlider').value);
+      
+      const selStatus = document.querySelector('#filter-status .chip.selected').getAttribute('data-value');
+      const selTenure = document.querySelector('#filter-tenure .chip.selected').getAttribute('data-value');
+      const selType = document.querySelector('#filter-type .chip.selected').getAttribute('data-value');
+      const selRooms = document.querySelector('#filter-rooms .chip.selected').getAttribute('data-value');
+
+      const processedResults = globalPropertiesRegistry.filter(asset => {
+        const tMatch = (asset.title || '').toLowerCase().includes(textQuery);
+        const lMatch = (asset.location || '').toLowerCase().includes(textQuery);
+        const costMatch = parseInt(asset.price || 0) <= maxBudget;
+        
+        const statMatch = (selStatus === 'Any') || (asset.status === selStatus);
+        const tenureMatch = (selTenure === 'Any') || (asset.tenure === selTenure);
+        const typeMatch = (selType === 'Any') || (asset.property_type === selType);
+        const roomMatch = (selRooms === 'Any') || ((asset.bedrooms || '').includes(selRooms));
+
+        return (tMatch || lMatch) && costMatch && statMatch && tenureMatch && typeMatch && roomMatch;
+      });
+
+      renderActiveCardsToDOM(processedResults);
+    }
+
+    function renderActiveCardsToDOM(records) {
+      const completedList = document.getElementById('completedList');
+      const hotList = document.getElementById('hotList');
+      completedList.innerHTML = '';
+      hotList.innerHTML = '';
+
+      if(globalPropertiesRegistry.length === 0) {
+        completedList.innerHTML = '<div class="empty-state-msg">No completed projects available yet.</div>';
+        hotList.innerHTML = '<div class="empty-state-msg">No upcoming projects available yet.</div>';
+        return;
+      }
+
+      records.forEach(asset => {
+        const status = asset.status || 'Active Launched';
+        const price = parseInt(asset.price || 0);
+        const tagStyle = status.includes('Completed') ? 'background: var(--success); color: #fff;' : 'background: rgba(11, 29, 58, 0.85); color: var(--primary);';
+        
+        const isCompared = compareListIds.includes(asset.id) ? 'selected' : '';
+        const compareIcon = compareListIds.includes(asset.id) ? '✓ Compared' : '➕ Compare';
+        const imgDisplay = asset.image_url || 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=600&auto=format&fit=crop';
+
+        let cardHTML = `
+          <div class="card" onclick="openDetailView('${asset.id}')">
+            <div class="card-img">
+              <span class="tag" style="${tagStyle}">${status}</span>
+              <div class="compare-badge ${isCompared}" onclick="toggleCompare(event, '${asset.id}')">${compareIcon}</div>
+              <img src="${imgDisplay}" alt="${asset.title}" onerror="this.src='https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=600&auto=format&fit=crop'">
+            </div>
+            <div class="card-body">
+              <div class="card-area">${asset.location || 'Kuala Lumpur'}</div>
+              <h3 class="card-title">${asset.title}</h3>
+              <p class="card-price">From RM ${price.toLocaleString()}</p>
+            </div>
+          </div>
+        `;
+
+        if (status.includes('Completed') || status.includes('Ready')) {
+          completedList.innerHTML += cardHTML;
+        } else {
+          hotList.innerHTML += cardHTML;
+        }
+      });
+
+      if(completedList.innerHTML === '') completedList.innerHTML = '<div class="empty-state-msg">No properties match this filter.</div>';
+      if(hotList.innerHTML === '') hotList.innerHTML = '<div class="empty-state-msg">No properties match this filter.</div>';
+    }
+
+    function syncSearches(val) { document.getElementById('searchInput').value = val; applyAllFilters(); }
+    
+    function updatePriceSlider(val) {
+      const limit = parseInt(val);
+      document.getElementById('priceLabel').innerText = limit === 5000000 ? "RM 5.0M+" : "RM " + (limit / 1000000).toFixed(1) + "M";
+      applyAllFilters();
+    }
+
+    function openFilter() { document.getElementById('modalOverlay').classList.add('active'); document.getElementById('filterSheet').classList.add('active'); }
+    function closeFilter() { document.getElementById('modalOverlay').classList.remove('active'); document.getElementById('filterSheet').classList.remove('active'); }
+    
+    document.querySelectorAll('.filter-sheet .chip-container .chip').forEach(chip => {
+      chip.addEventListener('click', function() {
+        Array.from(this.parentElement.children).forEach(node => node.classList.remove('selected'));
+        this.classList.add('selected');
+      });
+    });
+
+    function applyFilterSheetAndClose() { applyAllFilters(); closeFilter(); }
+    function resetAllFilters() {
+      document.querySelectorAll('.filter-sheet .chip-container').forEach(c => { Array.from(c.children).forEach((ch, i) => { ch.classList.toggle('selected', i===0); }); });
+      document.getElementById('searchInput').value = '';
+      document.getElementById('modalSearchInput').value = '';
+      document.getElementById('priceSlider').value = 5000000;
+      updatePriceSlider(5000000);
+      closeFilter();
+    }
+
+    // ==========================================
+    // 3. DYNAMIC COMPARE MATRIX
+    // ==========================================
+    function toggleCompare(event, id) {
+      event.stopPropagation(); 
+      if (compareListIds.includes(id)) {
+        compareListIds = compareListIds.filter(v => v !== id);
+      } else {
+        if (compareListIds.length >= 3) { alert("You can only compare up to 3 properties."); return; }
+        compareListIds.push(id);
+      }
+      applyAllFilters(); 
+    }
+
+    function renderCompareMatrix() {
+      const container = document.getElementById('compareContainer');
+      if (compareListIds.length === 0) {
+        container.innerHTML = '<div class="empty-compare">No properties selected. Go back to search and click "➕ Compare" on a property card.</div>';
+        return;
+      }
+
+      const selectedProps = compareListIds.map(id => globalPropertiesRegistry.find(p => p.id === id)).filter(Boolean);
+      
+      let html = `<table class="compare-table"><thead><tr><th>Feature</th>`;
+      selectedProps.forEach(p => html += `<th>${p.title}</th>`);
+      html += `</tr></thead><tbody>`;
+
+      const features = [
+        { label: 'Status', key: 'status', style: 'color:var(--success); font-weight:700;' },
+        { label: 'Location', key: 'location' },
+        { label: 'Price', key: 'price', format: val => `RM ${Number(val).toLocaleString()}` },
+        { label: 'Property Type', key: 'property_type' },
+        { label: 'Tenure', key: 'tenure', default: 'Freehold' },
+        { label: 'Bedrooms', key: 'bedrooms' },
+        { label: 'Size (Sqft)', key: 'size_sqft', default: 'TBA' },
+        { label: 'Carparks', key: 'carparks', default: '1 Lot' } 
+      ];
+
+      features.forEach(f => {
+        html += `<tr><td class="compare-label">${f.label}</td>`;
+        selectedProps.forEach(p => {
+          let val = p[f.key] || f.default || '-';
+          if(f.format && p[f.key]) val = f.format(p[f.key]);
+          html += `<td><span style="${f.style || ''}">${val}</span></td>`;
+        });
+        html += `</tr>`;
+      });
+      html += `</tbody></table>`;
+      container.innerHTML = html;
+    }
+
+    // ==========================================
+    // 4. SUPABASE SCHEDULE ENGINE WITH LEAD CAPTURE
+    // ==========================================
+    function selectDateCard(card) { 
+      document.querySelectorAll('.date-card').forEach(c => c.classList.remove('selected')); 
+      card.classList.add('selected'); 
+    }
+
+    async function loadTimeSlots(dateString, cardElement) {
+      selectDateCard(cardElement);
+      currentBookingDate = dateString;
+      
+      const slots = document.querySelectorAll('.time-slot');
+      slots.forEach(s => { s.classList.remove('selected', 'disabled'); });
+
+      try {
+        let { data, error } = await supabaseClient.from('appointments').select('time_slot').eq('booking_date', dateString);
+        if(!error && data) {
+          const bookedTimes = data.map(d => d.time_slot);
+          slots.forEach(s => {
+            if(bookedTimes.includes(s.getAttribute('data-time'))) {
+              s.classList.add('disabled');
+            }
+          });
+        }
+      } catch (err) { console.warn("Supabase fetch appointments failed."); }
+    }
+
+    function selectTimeSlot(slot) { 
+      if(!slot.classList.contains('disabled')) { 
+        document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('selected')); 
+        slot.classList.add('selected'); 
+      } 
+    }
+
+    async function confirmBooking() {
+      const activeSlot = document.querySelector('.time-slot.selected');
+      if(!activeSlot) { alert("Please select an available time slot."); return; }
+      
+      const clientName = document.getElementById('clientName').value.trim();
+      const clientPhone = document.getElementById('clientPhone').value.trim();
+
+      if(!clientName || !clientPhone) {
+        alert("Please provide your Name and Phone Number so Kareen can contact you to confirm.");
+        return;
+      }
+
+      const timeStr = activeSlot.getAttribute('data-time');
+      
+      try {
+        const { error } = await supabaseClient.from('appointments').insert([
+          { booking_date: currentBookingDate, time_slot: timeStr, client_name: clientName, client_phone: clientPhone }
+        ]);
+        if(error) throw error;
+        
+        alert(`Successfully locked viewing for ${currentBookingDate} at ${timeStr}. Kareen will contact you shortly.`);
+        activeSlot.classList.remove('selected');
+        activeSlot.classList.add('disabled'); 
+        
+        // Clear form
+        document.getElementById('clientName').value = '';
+        document.getElementById('clientPhone').value = '';
+
+      } catch (err) {
+        alert(`System Alert: ${err.message || 'Error booking slot.'}`);
+      }
+    }
+
+    // ==========================================
+    // 5. VIEW ROUTING & SPA LOGIC
+    // ==========================================
+    function switchNav(viewId, clickedItem) {
+      if(clickedItem) {
+        document.querySelectorAll('.bottom-nav .nav-item').forEach(el => el.classList.remove('active'));
+        clickedItem.classList.add('active');
+      }
+      closeDetailView();
+      document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+      document.getElementById(viewId + 'View').classList.add('active');
+      document.getElementById('globalSearch').style.display = (viewId === 'search') ? 'block' : 'none';
+      
+      if(viewId === 'compare') renderCompareMatrix();
+      if(viewId === 'schedule') loadTimeSlots('2026-06-01', document.querySelector('.date-card')); 
+    }
+
+    function openDetailView(assetId) {
+      const t = globalPropertiesRegistry.find(p => p.id === assetId);
+      if(t) {
+        document.getElementById('detail-tag').innerText = t.status || 'Details';
+        document.getElementById('detail-title').innerText = t.title;
+        document.getElementById('detail-location').innerText = `📍 ${t.location}`;
+        document.getElementById('detail-price').innerText = `From RM ${parseInt(t.price).toLocaleString()}`;
+        document.getElementById('detail-img').src = t.image_url || 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=800&auto=format&fit=crop';
+        document.getElementById('detail-type').innerText = t.property_type || 'Residential';
+        document.getElementById('detail-beds').innerText = t.bedrooms || '2 - 3 Beds';
+        document.getElementById('detail-tenure').innerText = t.tenure || 'Freehold';
+        document.getElementById('detail-size').innerText = t.size_sqft || 'TBA sqft';
+        
+        document.getElementById('sliderPrice').value = t.price;
+        calculateMortgage();
+
+        const vrIframe = document.getElementById('detail-vr');
+        const vrBlock = document.getElementById('detail-vr-section');
+        if(t.vr_url && t.vr_url.trim() !== '') { vrIframe.src = t.vr_url; vrBlock.style.display = 'block'; } 
+        else { vrBlock.style.display = 'none'; }
+      }
+      document.getElementById('detailView').style.display = 'block';
+      setTimeout(() => document.getElementById('detailView').classList.add('active'), 10);
+    }
+
+    function closeDetailView() {
+      document.getElementById('detailView').classList.remove('active');
+      setTimeout(() => document.getElementById('detailView').style.display = 'none', 300);
+    }
+
+    function switchInnerSearch(type, btn) {
+      document.querySelectorAll('.search-tabs button').forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('listView').style.display = (type === 'map') ? 'none' : 'block';
+      document.getElementById('mapView').style.display = (type === 'map') ? 'block' : 'none';
+    }
+
+    // ==========================================
+    // 6. MORTGAGE CALCULATOR
+    // ==========================================
+    function calculateMortgage() {
+      const price = parseFloat(document.getElementById('sliderPrice').value);
+      const tenure = parseFloat(document.getElementById('sliderTenure').value);
+      const rate = parseFloat(document.getElementById('sliderInterest').value);
+
+      document.getElementById('valPrice').innerText = price.toLocaleString();
+      document.getElementById('valTenure').innerText = tenure;
+      document.getElementById('valInterest').innerText = rate.toFixed(1);
+
+      const down = price * 0.10;
+      document.getElementById('valDown').innerText = down.toLocaleString();
+
+      const principal = price - down;
+      const mRate = (rate / 100) / 12;
+      const tPayments = tenure * 12;
+
+      let payment = mRate > 0 ? (principal * (mRate * Math.pow(1 + mRate, tPayments)) / (Math.pow(1 + mRate, tPayments) - 1)) : (principal / tPayments);
+      document.getElementById('valMonthly').innerText = Math.round(payment).toLocaleString();
+    }
+
+    executeCloudDataSync();
+  </script>
+</body>
+</html>
