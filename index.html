@@ -913,7 +913,10 @@
 
         const vrIframe = document.getElementById('detail-vr');
         const vrBlock = document.getElementById('detail-vr-section');
-        if(t.vr_url && t.vr_url.trim() !== '') { vrIframe.src = t.vr_url; vrBlock.style.display = 'block'; } 
+        if(t.vr_url && t.vr_url.trim() !== '') { 
+  vrIframe.src = t.vr_url.trim().replace(/\/$/, ""); // 自动清除末尾的斜杠
+  vrBlock.style.display = 'block'; 
+} 
         else { vrBlock.style.display = 'none'; }
       }
       document.getElementById('detailView').style.display = 'block';
