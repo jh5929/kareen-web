@@ -39,7 +39,7 @@
     a { color: inherit; text-decoration: none; }
     img { max-width: 100%; display: block; }
     button { font-family: inherit; }
-    input { outline: none; }
+    input, select { outline: none; }
     
     /* Header */
     header { position: sticky; top: 0; z-index: 40; background: var(--bg-dark); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; }
@@ -111,7 +111,11 @@
     .tag { position: absolute; top: 10px; left: 10px; background: rgba(11, 29, 58, 0.85); color: var(--primary); backdrop-filter: blur(4px); font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-transform: uppercase; pointer-events: none;}
     .tag.completed { background: var(--success); color: #fff;}
     
-    .compare-badge { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.9); border: 1px solid var(--border-color); color: var(--bg-dark); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; cursor: pointer; transition: 0.2s; z-index: 2;}
+    /* NEW: Save Badge added next to compare badge */
+    .save-badge { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.9); border: 1px solid var(--border-color); color: var(--bg-dark); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; cursor: pointer; transition: 0.2s; z-index: 2;}
+    .save-badge.saved { background: #ff4757; color: #fff; border: none; }
+    
+    .compare-badge { position: absolute; top: 40px; right: 10px; background: rgba(255,255,255,0.9); border: 1px solid var(--border-color); color: var(--bg-dark); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; cursor: pointer; transition: 0.2s; z-index: 2;}
     .compare-badge.selected { background: var(--primary); color: var(--bg-dark); border: none; }
 
     .card-body { padding: 16px; flex: 1; pointer-events: none;}
@@ -150,8 +154,8 @@
     .time-slot.selected { background: var(--primary); color: var(--bg-dark); border-color: var(--primary); box-shadow: 0 4px 12px rgba(200, 169, 110, 0.3);}
     .time-slot.disabled { opacity: 0.4; cursor: not-allowed; background: #eaeaea; color: #999; text-decoration: line-through;}
     
-    .lead-form input { width: 100%; padding: 14px; margin-bottom: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; font-family: inherit; background: var(--bg-light); }
-    .lead-form input:focus { border-color: var(--bg-dark); background: #fff; }
+    .lead-form input, .lead-form select { width: 100%; padding: 14px; margin-bottom: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; font-family: inherit; background: var(--bg-light); }
+    .lead-form input:focus, .lead-form select:focus { border-color: var(--bg-dark); background: #fff; }
 
     /* Profile View */
     #profileView { background: var(--bg-light); min-height: 100%; padding-bottom: 100px;}
@@ -264,7 +268,7 @@
           <span>Max Budget</span>
           <span><b id="priceLabel">RM 5.0M+</b></span>
         </div>
-        <input type="range" id="priceSlider" class="price-slider" min="250000" max="5000000" step="50000" value="5000000" oninput="updatePriceSlider(this.value)">
+        <input type="range" id="priceSlider" class="price-slider" min="100000" max="5000000" step="50000" value="5000000" oninput="updatePriceSlider(this.value)">
       </div>
     </div>
 
@@ -284,6 +288,12 @@
                <div class="empty-state-msg">Fetching cloud data...</div>
             </div>
           </div>
+          <div class="section" style="padding-bottom: 20px;">
+            <div class="section-header"><h2>Saved Properties ❤️</h2></div>
+            <div class="carousel" id="savedList">
+               <div class="empty-state-msg">Click '♡ Save' on any property to build your shortlist.</div>
+            </div>
+          </div>
         </div>
         <div id="mapView" style="display:none;">
           <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d127482.68667469792!2d101.61694931816738!3d3.138503598150499!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31cc362bfc0402ce%3A0xdf1d50937a3c7bc!2sKuala%20Lumpur%2C%20Federal%20Territory%20of%20Kuala%20Lumpur!5e0!3m2!1sen!2smy!4v1717254516314!5m2!1sen!2smy" width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
@@ -300,15 +310,12 @@
 
       <div id="scheduleView" class="view-section">
         <h2 style="font-family: 'Playfair Display', serif; color: var(--bg-dark); margin-top: 0;">Schedule a Viewing</h2>
-        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 24px;">Synchronize with real-time availability calendar.</p>
+        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 24px;">Synchronize with Kareen's real-time 30-day availability calendar.</p>
         
-        <label style="font-size: 13px; font-weight: 700; color: var(--bg-dark); margin-bottom: 12px; display: block;">Select Date (June 2026)</label>
-        <div class="date-scroller">
-          <div class="date-card selected" onclick="loadTimeSlots('2026-06-01', this)"><div class="date-day">Mon</div><div class="date-num">1</div></div>
-          <div class="date-card" onclick="loadTimeSlots('2026-06-02', this)"><div class="date-day">Tue</div><div class="date-num">2</div></div>
-          <div class="date-card" onclick="loadTimeSlots('2026-06-03', this)"><div class="date-day">Wed</div><div class="date-num">3</div></div>
-          <div class="date-card" onclick="loadTimeSlots('2026-06-04', this)"><div class="date-day">Thu</div><div class="date-num">4</div></div>
-        </div>
+        <label id="calendarMonthLabel" style="font-size: 13px; font-weight: 700; color: var(--bg-dark); margin-bottom: 12px; display: block;">Select Date</label>
+        
+        <div class="date-scroller" id="dateScroller">
+           </div>
 
         <label style="font-size: 13px; font-weight: 700; color: var(--bg-dark); margin-bottom: 12px; display: block;">Available Sessions</label>
         <div class="time-grid" id="timeGrid">
@@ -319,12 +326,17 @@
         </div>
 
         <div class="lead-form" style="margin-bottom: 24px; border-top: 1px solid var(--border-color); padding-top: 20px;">
-          <label style="font-size: 13px; font-weight: 700; color: var(--bg-dark); margin-bottom: 12px; display: block;">Your Contact Details</label>
+          <label style="font-size: 13px; font-weight: 700; color: var(--bg-dark); margin-bottom: 12px; display: block;">Your Viewing Setup</label>
+          
+          <select id="scheduledProperty" required>
+            <option value="">-- Select a saved property to view --</option>
+          </select>
+
           <input type="text" id="clientName" placeholder="Full Name" required>
           <input type="tel" id="clientPhone" placeholder="Phone Number (e.g., 0123456789)" required>
         </div>
 
-        <button onclick="confirmBooking()" style="width: 100%; padding: 16px; background: var(--bg-dark); color: var(--primary); font-weight: 700; font-size: 16px; border: none; border-radius: 12px; cursor: pointer;">Confirm Slot</button>
+        <button onclick="confirmBooking()" style="width: 100%; padding: 16px; background: var(--bg-dark); color: var(--primary); font-weight: 700; font-size: 16px; border: none; border-radius: 12px; cursor: pointer;">Lock Slot & Notify Agent</button>
       </div>
 
       <div id="profileView" class="view-section">
@@ -336,7 +348,7 @@
           <div class="stats-row">
             <div class="stat-box"><div class="stat-num">5+</div><div class="stat-label">Years Exp</div></div>
             <div class="stat-box"><div class="stat-num">120+</div><div class="stat-label">Asset Matches</div></div>
-            <div class="stat-box"><div class="stat-num">4.9★</div><div class="stat-label">Trust Index</div></div>
+            <div class="stat-box"><div class="stat-num">5.0★</div><div class="stat-label">Trust Index</div></div>
           </div>
         </div>
         <div class="profile-section">
@@ -350,7 +362,9 @@
         </div>
       </div>
 
-    </div> <div id="detailView">
+    </div> 
+    
+    <div id="detailView">
       <div class="detail-header">
         <button class="back-btn" onclick="closeDetailView()">← Back Explore</button>
         <div style="font-family: 'Playfair Display', serif; font-weight: 700; letter-spacing: 1px; color: var(--primary);">ASSET DATA</div>
@@ -491,9 +505,10 @@
     const supabaseKey = 'sb_publishable_GnK_xyRsCtIO7vtE9k-zPw_eSs4Erd0'; 
     const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 
-    let globalPropertiesRegistry = []; // No more fake data
+    let globalPropertiesRegistry = []; 
     let compareListIds = []; 
-    let currentBookingDate = '2026-06-01'; 
+    let savedListIds = []; // NEW: Array to track saved properties
+    let currentBookingDate = ''; 
 
     async function executeCloudDataSync() {
       try {
@@ -503,14 +518,15 @@
           globalPropertiesRegistry = databasePayload;
         }
       } catch (err) {
-        console.warn("Supabase fetch failed. Check network or table permissions.");
+        console.warn("Supabase fetch failed.");
       } finally {
         applyAllFilters();
+        generateCalendar(); // Generate 30 days calendar on load
       }
     }
 
     // ==========================================
-    // 2. SEARCH & FILTER ENGINE
+    // 2. SEARCH, FILTER & SAVE ENGINE
     // ==========================================
     function applyAllFilters() {
       const textQuery = document.getElementById('searchInput').value.toLowerCase().trim();
@@ -535,6 +551,19 @@
       });
 
       renderActiveCardsToDOM(processedResults);
+      renderSavedCardsToDOM(); // Always refresh saved list
+    }
+
+    // NEW: Save Property Toggle Logic
+    function toggleSave(event, id) {
+      event.stopPropagation();
+      if (savedListIds.includes(id)) {
+        savedListIds = savedListIds.filter(v => v !== id);
+      } else {
+        savedListIds.push(id);
+      }
+      applyAllFilters();
+      updateScheduleDropdown(); // Sync to schedule form
     }
 
     function renderActiveCardsToDOM(records) {
@@ -556,12 +585,17 @@
         
         const isCompared = compareListIds.includes(asset.id) ? 'selected' : '';
         const compareIcon = compareListIds.includes(asset.id) ? '✓ Compared' : '➕ Compare';
+        
+        const isSaved = savedListIds.includes(asset.id) ? 'saved' : '';
+        const saveIcon = savedListIds.includes(asset.id) ? '❤️ Saved' : '♡ Save';
+        
         const imgDisplay = asset.image_url || 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=600&auto=format&fit=crop';
 
         let cardHTML = `
           <div class="card" onclick="openDetailView('${asset.id}')">
             <div class="card-img">
               <span class="tag" style="${tagStyle}">${status}</span>
+              <div class="save-badge ${isSaved}" onclick="toggleSave(event, '${asset.id}')">${saveIcon}</div>
               <div class="compare-badge ${isCompared}" onclick="toggleCompare(event, '${asset.id}')">${compareIcon}</div>
               <img src="${imgDisplay}" alt="${asset.title}" onerror="this.src='https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=600&auto=format&fit=crop'">
             </div>
@@ -584,11 +618,57 @@
       if(hotList.innerHTML === '') hotList.innerHTML = '<div class="empty-state-msg">No properties match this filter.</div>';
     }
 
+    // NEW: Render the Saved Properties specific container
+    function renderSavedCardsToDOM() {
+      const savedContainer = document.getElementById('savedList');
+      if(!savedContainer) return;
+      savedContainer.innerHTML = '';
+
+      if(savedListIds.length === 0) {
+        savedContainer.innerHTML = '<div class="empty-state-msg">Click \'♡ Save\' on any property to build your shortlist.</div>';
+        return;
+      }
+
+      const savedProps = savedListIds.map(id => globalPropertiesRegistry.find(p => p.id === id)).filter(Boolean);
+      
+      savedProps.forEach(asset => {
+        const price = parseInt(asset.price || 0);
+        const isCompared = compareListIds.includes(asset.id) ? 'selected' : '';
+        const compareIcon = compareListIds.includes(asset.id) ? '✓ Compared' : '➕ Compare';
+        const imgDisplay = asset.image_url || 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=600&auto=format&fit=crop';
+
+        savedContainer.innerHTML += `
+          <div class="card" onclick="openDetailView('${asset.id}')">
+            <div class="card-img">
+              <span class="tag" style="background:var(--success);color:#fff;">Saved</span>
+              <div class="save-badge saved" onclick="toggleSave(event, '${asset.id}')">❤️ Saved</div>
+              <div class="compare-badge ${isCompared}" onclick="toggleCompare(event, '${asset.id}')">${compareIcon}</div>
+              <img src="${imgDisplay}" alt="${asset.title}" onerror="this.src='https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=600&auto=format&fit=crop'">
+            </div>
+            <div class="card-body">
+              <div class="card-area">${asset.location || 'Kuala Lumpur'}</div>
+              <h3 class="card-title">${asset.title}</h3>
+              <p class="card-price">From RM ${price.toLocaleString()}</p>
+            </div>
+          </div>
+        `;
+      });
+    }
+
     function syncSearches(val) { document.getElementById('searchInput').value = val; applyAllFilters(); }
     
+    // FIX: Enhanced Price Slider formatting (100k format for under 1M)
     function updatePriceSlider(val) {
       const limit = parseInt(val);
-      document.getElementById('priceLabel').innerText = limit === 5000000 ? "RM 5.0M+" : "RM " + (limit / 1000000).toFixed(1) + "M";
+      let displayTxt = "";
+      if (limit >= 5000000) {
+        displayTxt = "RM 5.0M+";
+      } else if (limit >= 1000000) {
+        displayTxt = "RM " + (limit / 1000000).toFixed(1) + "M";
+      } else {
+        displayTxt = "RM " + (limit / 1000) + "k";
+      }
+      document.getElementById('priceLabel').innerText = displayTxt;
       applyAllFilters();
     }
 
@@ -664,15 +744,65 @@
     }
 
     // ==========================================
-    // 4. SUPABASE SCHEDULE ENGINE WITH LEAD CAPTURE
+    // 4. SUPABASE SCHEDULE ENGINE & DYNAMIC CALENDAR
     // ==========================================
+    
+    // NEW: Generate 30 days rolling calendar
+    function generateCalendar() {
+      const scroller = document.getElementById('dateScroller');
+      const label = document.getElementById('calendarMonthLabel');
+      if(!scroller) return;
+      scroller.innerHTML = '';
+      
+      const today = new Date();
+      const daysStr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const monthStr = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      label.innerText = `Select Date (From ${monthStr[today.getMonth()]} ${today.getFullYear()})`;
+
+      for(let i=1; i<=30; i++) {
+        let futureDate = new Date();
+        futureDate.setDate(today.getDate() + i);
+        
+        let yyyy = futureDate.getFullYear();
+        let mm = String(futureDate.getMonth() + 1).padStart(2, '0');
+        let dd = String(futureDate.getDate()).padStart(2, '0');
+        let dateStr = `${yyyy}-${mm}-${dd}`;
+        
+        let dayName = daysStr[futureDate.getDay()];
+        let dayNum = futureDate.getDate();
+        let selectedClass = i === 1 ? 'selected' : '';
+        
+        scroller.innerHTML += `<div class="date-card ${selectedClass}" onclick="loadTimeSlots('${dateStr}', this)"><div class="date-day">${dayName}</div><div class="date-num">${dayNum}</div></div>`;
+        
+        if(i === 1) currentBookingDate = dateStr;
+      }
+      
+      // Auto-load slots for the first generated date
+      loadTimeSlots(currentBookingDate, scroller.firstChild);
+    }
+
+    // NEW: Sync saved properties to schedule dropdown
+    function updateScheduleDropdown() {
+      const select = document.getElementById('scheduledProperty');
+      if(!select) return;
+      select.innerHTML = '<option value="">-- Select a saved property to view --</option>';
+      savedListIds.forEach(id => {
+        const p = globalPropertiesRegistry.find(x => x.id === id);
+        if(p) select.innerHTML += `<option value="${p.title}">${p.title}</option>`;
+      });
+      if(savedListIds.length === 0) {
+        select.innerHTML = '<option value="">-- You have not saved any properties yet --</option>';
+      }
+    }
+
     function selectDateCard(card) { 
       document.querySelectorAll('.date-card').forEach(c => c.classList.remove('selected')); 
       card.classList.add('selected'); 
     }
 
     async function loadTimeSlots(dateString, cardElement) {
-      selectDateCard(cardElement);
+      if(cardElement) selectDateCard(cardElement);
       currentBookingDate = dateString;
       
       const slots = document.querySelectorAll('.time-slot');
@@ -698,15 +828,22 @@
       } 
     }
 
+    // UPDATED: Confirm Booking & WhatsApp Integration
     async function confirmBooking() {
       const activeSlot = document.querySelector('.time-slot.selected');
       if(!activeSlot) { alert("Please select an available time slot."); return; }
       
+      const propertyName = document.getElementById('scheduledProperty').value;
       const clientName = document.getElementById('clientName').value.trim();
       const clientPhone = document.getElementById('clientPhone').value.trim();
 
+      if(!propertyName) {
+        alert("Please save a property first and select it from the dropdown.");
+        return;
+      }
+
       if(!clientName || !clientPhone) {
-        alert("Please provide your Name and Phone Number so Kareen can contact you to confirm.");
+        alert("Please provide your Name and Phone Number.");
         return;
       }
 
@@ -718,13 +855,20 @@
         ]);
         if(error) throw error;
         
-        alert(`Successfully locked viewing for ${currentBookingDate} at ${timeStr}. Kareen will contact you shortly.`);
+        // Disable UI slot instantly
         activeSlot.classList.remove('selected');
         activeSlot.classList.add('disabled'); 
         
-        // Clear form
+        // Clear Form
         document.getElementById('clientName').value = '';
         document.getElementById('clientPhone').value = '';
+
+        // NEW: WhatsApp Pre-filled Generation
+        const msg = `Hi Kareen, I am ${clientName}. I would like to schedule a viewing for *${propertyName}* on *${currentBookingDate}* at *${timeStr}*. My contact number is ${clientPhone}.`;
+        const waUrl = `https://wa.me/60126501692?text=${encodeURIComponent(msg)}`;
+        
+        alert(`Slot locked! Redirecting to WhatsApp to send the viewing request to Kareen.`);
+        window.open(waUrl, '_blank');
 
       } catch (err) {
         alert(`System Alert: ${err.message || 'Error booking slot.'}`);
@@ -745,7 +889,10 @@
       document.getElementById('globalSearch').style.display = (viewId === 'search') ? 'block' : 'none';
       
       if(viewId === 'compare') renderCompareMatrix();
-      if(viewId === 'schedule') loadTimeSlots('2026-06-01', document.querySelector('.date-card')); 
+      if(viewId === 'schedule') {
+        // Automatically sync the dropdown when user opens schedule view
+        updateScheduleDropdown();
+      }
     }
 
     function openDetailView(assetId) {
