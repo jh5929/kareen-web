@@ -756,8 +756,15 @@
             const timeStr = activeSlot.getAttribute('data-time');
 
             try {
+                // 👇 【修改在这里】把 property_name 一并推送给后台 👇
                 const { error } = await supabaseClient.from('appointments').insert([
-                    {booking_date: currentBookingDate, time_slot: timeStr, client_name: clientName, client_phone: clientPhone }
+                    {
+                        booking_date: currentBookingDate, 
+                        time_slot: timeStr, 
+                        client_name: clientName, 
+                        client_phone: clientPhone,
+                        property_name: propertyName 
+                    }
                 ]);
                 if(error) throw error;
                 
