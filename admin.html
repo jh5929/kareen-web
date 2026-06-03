@@ -157,14 +157,14 @@
                             <tr>
                                 <th>Client Name</th>
                                 <th>Phone Number</th>
-                                <th>Target Date</th>
+                                <th>Target Property</th> <th>Target Date</th>
                                 <th>Time Slot</th>
                                 <th>Status</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
                         <tbody id="leadsTableBody">
-                            <tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">Loading...</td></tr>
+                            <tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">Loading...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -254,17 +254,13 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // 1. SUPABASE INIT & GLOBALS
         const supabaseUrl = 'https://fryynuhukubqppilqpfk.supabase.co';
         const supabaseKey = 'sb_publishable_GnK_xyRsCtIO7vtE9k-zPw_eSs4Erd0';
-        
-        // 【修正核心 Bug】重命名变量，防止与 CDN 的全局对象对象同名冲突导致脚本挂掉
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
         
         let allProperties = [];
         let confirmActionCallback = null;
 
-        // 2. UTILITY UI FUNCTIONS
         function showToast(msg, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -300,7 +296,6 @@
             if(window.innerWidth <= 768) { document.getElementById('sidebar').classList.remove('open'); }
         }
 
-        // 3. AUTHENTICATION LOGIC
         async function checkSession() {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
@@ -328,10 +323,8 @@
             checkSession();
         }
 
-        // 初始化检查登录状态
         checkSession();
 
-        // 4. TAB NAVIGATION
         function switchTab(tabId, element) {
             document.querySelectorAll('.sidebar .nav-item').forEach(el => el.classList.remove('active'));
             element.classList.add('active');
@@ -342,7 +335,6 @@
             if(tabId === 'properties') fetchPropertiesData();
         }
 
-        // 5. APPOINTMENTS LOGIC
         async function fetchAppointmentsData() {
             try {
                 let { data: appointments, error } = await supabaseClient.from('appointments').select('*').order('created_at', { ascending: false });
@@ -351,7 +343,7 @@
                 tbody.innerHTML = '';
                 
                 if (!appointments || appointments.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 40px;">No viewing leads registered yet.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 40px;">No viewing leads registered yet.</td></tr>';
                     updateMetrics(0, 0, 0); return;
                 }
 
@@ -364,10 +356,14 @@
                         <tr>
                             <td style="font-weight: 600; color: var(--navy);">${escapeHtml(lead.client_name || 'Unknown')}</td>
                             <td><a href="https://wa.me/${formatPhoneForWhatsApp(lead.client_phone)}" target="_blank" style="color: var(--success-text); font-weight: 600; text-decoration: underline;">${escapeHtml(lead.client_phone || '-')}</a></td>
+                            <td style="font-weight: 600; color: var(--gold);">${escapeHtml(lead.property_name || 'Not Specified')}</td>
                             <td style="font-weight: 500;">${escapeHtml(lead.booking_date)}</td>
                             <td><span style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-weight: 600;">${escapeHtml(lead.time_slot)}</span></td>
                             <td><span class="status-badge ${isDone ? 'completed' : 'pending'}">${isDone ? 'Contacted' : 'Pending'}</span></td>
-                            <td><button class="btn btn-outline" style="font-size: 11px;" onclick="updateLeadStatus('${lead.id}', '${isDone ? 'Pending' : 'Completed'}')">${isDone ? 'Mark Pending' : 'Mark Contacted'}</button></td>
+                            <td>
+                                <button class="btn btn-outline" style="font-size: 11px; margin-right: 4px;" onclick="updateLeadStatus('${lead.id}', '${isDone ? 'Pending' : 'Completed'}')">${isDone ? 'Mark Pending' : 'Mark Contacted'}</button>
+                                <button class="btn btn-danger" style="font-size: 11px;" onclick="deleteAppointment('${lead.id}')">Del</button>
+                            </td>
                         </tr>`;
                 });
                 updateMetrics(appointments.length, pending, completed);
@@ -389,7 +385,18 @@
             } catch (err) { showToast('Status update failed.', 'error'); }
         }
 
-        // 6. PROPERTIES CRUD
+        // 新增的删除预约客资功能
+        function deleteAppointment(id) {
+            showConfirm("Are you sure you want to permanently delete this lead?", async () => {
+                try {
+                    const { error } = await supabaseClient.from('appointments').delete().eq('id', id);
+                    if (error) throw error;
+                    showToast('Lead Deleted', 'success');
+                    fetchAppointmentsData();
+                } catch (err) { showToast(err.message, 'error'); }
+            });
+        }
+
         async function fetchPropertiesData() {
             try {
                 let { data, error } = await supabaseClient.from('properties').select('*').order('created_at', { ascending: false });
@@ -537,7 +544,6 @@
             });
         }
 
-        // JSONB Tools
         function addInsightRow(type = '', size = '', layout = '', price = '') {
             const wrapper = document.getElementById('insightsWrapper');
             const row = document.createElement('div');
