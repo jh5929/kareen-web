@@ -228,7 +228,7 @@
             </div>
             <div class="search-bar">
                 <div class="search-input-wrap">
-                    <input type="text" id="searchInput" placeholder="Search projects, location..." onkeyup="applyAllFilters()">
+                    <input type="text" id="searchInput" placeholder="Search Puchong, TRX..." onkeyup="applyAllFilters()">
                     <button onclick="applyAllFilters()">🔍</button>
                 </div>
                 <div class="filter-btn" onclick="openFilter()">⎈</div>
@@ -379,11 +379,25 @@
                 </div>
             </div>
             
+            <div class="detail-section" id="detail-highlight-section" style="display:none; padding-top: 0;">
+                <h2 class="section-title">Core Highlight</h2>
+                <p id="detail-highlight" style="font-size: 15px; color: var(--primary); font-weight: 700; line-height: 1.6; margin: 0;"></p>
+            </div>
+
             <div class="detail-section" id="detail-desc-section" style="display:none; padding-top: 0;">
                 <h2 class="section-title">Property Description</h2>
                 <p id="detail-description" style="font-size: 14px; color: var(--text-muted); line-height: 1.6; margin: 0; white-space: pre-line;"></p>
             </div>
 
+            <div class="detail-section" id="detail-facilities-section" style="display:none; padding-top: 0;">
+                <h2 class="section-title">Exclusive Facilities</h2>
+                <p id="detail-facilities" style="font-size: 14px; color: var(--bg-dark); font-weight: 500; line-height: 1.6; margin: 0;"></p>
+            </div>
+
+            <div class="detail-section" id="detail-amenities-section" style="display:none; padding-top: 0;">
+                <h2 class="section-title">Nearby Amenities</h2>
+                <div id="detail-amenities" style="font-size: 13px; color: var(--text-muted); line-height: 1.6; margin: 0; display: flex; flex-direction: column; gap: 8px;"></div>
+            </div>
             <div id="detail-vr-section" class="detail-section">
                 <h2 class="section-title">Virtual Projection Space (3D VR)</h2>
                 <div class="media-container">
@@ -650,6 +664,34 @@
             }
         }
 
+        // ==========================================
+        // 核心逻辑 - 智能地图辐射搜索 (Radius Search)
+        // ==========================================
+        const regionMap = {
+            "puchong": { lat: 3.0333, lng: 101.6158 },
+            "bukit jalil": { lat: 3.0580, lng: 101.6885 },
+            "klcc": { lat: 3.1578, lng: 101.7115 },
+            "subang jaya": { lat: 3.0567, lng: 101.5855 },
+            "petaling jaya": { lat: 3.1073, lng: 101.6067 },
+            "pj": { lat: 3.1073, lng: 101.6067 },
+            "sunway": { lat: 3.0673, lng: 101.6035 },
+            "cheras": { lat: 3.1041, lng: 101.7324 },
+            "cyberjaya": { lat: 2.9228, lng: 101.6572 },
+            "mont kiara": { lat: 3.1670, lng: 101.6510 }
+        };
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
+            const R = 6371; 
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c; 
+        }
+
         function applyAllFilters() {
             const textQuery = document.getElementById('searchInput').value.toLowerCase().trim();
             const maxBudget = parseInt(document.getElementById('priceSlider').value);
@@ -658,15 +700,30 @@
             const selType = document.querySelector('#filter-type .chip.selected').getAttribute('data-value');
             const selRooms = document.querySelector('#filter-rooms .chip.selected').getAttribute('data-value');
 
+            const searchTargetCoords = regionMap[textQuery];
+
             const processedResults = globalPropertiesRegistry.filter(asset => {
+                // A. 文本精准匹配
                 const tMatch = (asset.title || "").toLowerCase().includes(textQuery);
                 const lMatch = (asset.location || "").toLowerCase().includes(textQuery);
+                const hMatch = (asset.property_highlight || "").toLowerCase().includes(textQuery);
+                
+                // B. 地理辐射匹配 (Haversine 10公里)
+                let distanceMatch = false;
+                if (searchTargetCoords && asset.lat && asset.lng) {
+                    const distance = calculateDistance(searchTargetCoords.lat, searchTargetCoords.lng, asset.lat, asset.lng);
+                    if (distance <= 10.0) distanceMatch = true;
+                }
+                
+                const textOrDistMatch = textQuery === "" || tMatch || lMatch || hMatch || distanceMatch;
+
                 const costMatch = parseInt(asset.price || 0) <= maxBudget;
                 const statMatch = (selStatus === 'Any') || (asset.status === selStatus);
                 const tenureMatch = (selTenure === 'Any') || (asset.tenure === selTenure);
                 const typeMatch = (selType === 'Any') || (asset.property_type === selType);
                 const roomMatch = (selRooms === 'Any') || ((asset.bedrooms || "").includes(selRooms));
-                return (tMatch || lMatch) && costMatch && statMatch && tenureMatch && typeMatch && roomMatch;
+                
+                return textOrDistMatch && costMatch && statMatch && tenureMatch && typeMatch && roomMatch;
             });
 
             renderActiveCardsToDOM(processedResults);
@@ -703,7 +760,6 @@
                 const isSaved = savedListIds.includes(asset.id) ? 'saved' : '';
                 const saveIcon = savedListIds.includes(asset.id) ? 'Saved' : 'Save';
                 
-                // [UPDATED] Remove dummy Unsplash photos. Use real DB multi-images or generic placeholder.
                 const safeImage = asset.image_url ? asset.image_url.split(',')[0].trim() : 'https://placehold.co/600x400/0B1D3A/C8A96E?text=KAREEN+PREMIUM+ASSET';
                 const galleryData = asset.image_url ? asset.image_url : safeImage;
 
@@ -748,7 +804,6 @@
                 const isCompared = compareListIds.includes(asset.id) ? 'selected' : '';
                 const compareIcon = compareListIds.includes(asset.id) ? 'Compared' : '+ Compare';
                 
-                // [UPDATED] Remove dummy Unsplash photos
                 const safeImage = asset.image_url ? asset.image_url.split(',')[0].trim() : 'https://placehold.co/600x400/0B1D3A/C8A96E?text=KAREEN+PREMIUM+ASSET';
                 const galleryData = asset.image_url ? asset.image_url : safeImage;
 
@@ -987,7 +1042,6 @@
                 document.getElementById('detail-location').innerText = t.location;
                 document.getElementById('detail-price').innerText = `From RM ${parseInt(t.price).toLocaleString()}`;
                 
-                // [UPDATED] Remove dummy Unsplash photos
                 const safeImage = t.image_url ? t.image_url.split(',')[0].trim() : 'https://placehold.co/800x600/0B1D3A/C8A96E?text=KAREEN+PREMIUM+ASSET';
                 const galleryData = t.image_url ? t.image_url : safeImage;
                 
@@ -1001,13 +1055,46 @@
                 document.getElementById('detail-tenure').innerText = t.tenure || 'Freehold';
                 document.getElementById('detail-size').innerText = t.size_sqft || 'TBA sqft';
 
-                const descBlock = document.getElementById('detail-desc-section');
-                const descText = document.getElementById('detail-description');
-                if(t.description && t.description.trim() !== "") {
-                    descText.innerText = t.description;
-                    descBlock.style.display = 'block';
+                // 展示 Highlight
+                if(t.property_highlight && t.property_highlight.trim() !== "") {
+                    document.getElementById('detail-highlight').innerText = t.property_highlight;
+                    document.getElementById('detail-highlight-section').style.display = 'block';
                 } else {
-                    descBlock.style.display = 'none';
+                    document.getElementById('detail-highlight-section').style.display = 'none';
+                }
+
+                // 展示 Description
+                if(t.description && t.description.trim() !== "") {
+                    document.getElementById('detail-description').innerText = t.description;
+                    document.getElementById('detail-desc-section').style.display = 'block';
+                } else {
+                    document.getElementById('detail-desc-section').style.display = 'none';
+                }
+
+                // 展示 Facilities
+                if(t.facilities && t.facilities.trim() !== "") {
+                    document.getElementById('detail-facilities').innerText = t.facilities;
+                    document.getElementById('detail-facilities-section').style.display = 'block';
+                } else {
+                    document.getElementById('detail-facilities-section').style.display = 'none';
+                }
+
+                // 解析展示 Nearby Amenities
+                if(t.nearby_amenities && Object.keys(t.nearby_amenities).length > 0) {
+                    let amHtml = '';
+                    for (const [key, value] of Object.entries(t.nearby_amenities)) {
+                        if (Array.isArray(value) && value.length > 0) {
+                            amHtml += `<div><strong style="color:var(--bg-dark); text-transform:uppercase;">${key}:</strong> ${value.join(', ')}</div>`;
+                        }
+                    }
+                    if(amHtml) {
+                        document.getElementById('detail-amenities').innerHTML = amHtml;
+                        document.getElementById('detail-amenities-section').style.display = 'block';
+                    } else {
+                        document.getElementById('detail-amenities-section').style.display = 'none';
+                    }
+                } else {
+                    document.getElementById('detail-amenities-section').style.display = 'none';
                 }
                 
                 document.getElementById('sliderPrice').value = t.price || 550000;

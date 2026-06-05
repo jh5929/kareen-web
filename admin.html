@@ -88,6 +88,9 @@
 
         .confirm-card { max-width: 400px; padding: 24px; background: #fff; border-radius: 12px; text-align: center; }
 
+        /* AI Module Style */
+        .ai-module { background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 24px; border: 1px solid var(--gold); border-left: 4px solid var(--gold); box-shadow: 0 4px 12px rgba(200, 169, 110, 0.1); }
+
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); }
             .sidebar.open { transform: translateX(0); }
@@ -203,6 +206,14 @@
                 <button class="btn" style="background:transparent; color:#fff; font-size:24px; padding:0;" onclick="closePropertyModal()">×</button>
             </div>
             <div class="modal-body">
+                
+                <div class="ai-module">
+                    <h4 style="margin-top: 0; color: var(--navy);">🤖 AI 智能填表助手 (GPT-4o)</h4>
+                    <textarea id="aiRawText" rows="3" placeholder="在此粘贴发展商或中介发送的凌乱 WhatsApp 房源文案..." style="width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px;"></textarea>
+                    <input type="text" id="aiImageUrl" placeholder="[可选] 粘贴宣传图链接 (URL) 以启用 GPT-4o 视觉识别补充资料" style="width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px;">
+                    <button type="button" id="aiParseBtn" onclick="parseWithAI()" class="btn btn-primary auto-width" style="background: var(--gold); color: white;">🤖 AI 一键解析并自动填表</button>
+                </div>
+
                 <form id="propertyForm">
                     <input type="hidden" id="propId">
                     <div class="form-grid">
@@ -211,8 +222,24 @@
                         <div class="form-group"><label>Base Price (Numeric) *</label><input type="number" id="propPrice" required placeholder="e.g., 550000"></div>
                         
                         <div class="form-group full">
+                            <label>Property Highlight (1-2 Sentences Core Selling Point)</label>
+                            <textarea id="propHighlight" rows="2" placeholder="e.g., 5 mins walk to LRT Station with unblocked KLCC view..."></textarea>
+                        </div>
+
+                        <div class="form-group full">
                             <label>Property Description</label>
-                            <textarea id="propDesc" rows="4" placeholder="Enter property details, selling points, or marketing copy..."></textarea>
+                            <textarea id="propDesc" rows="4" placeholder="Enter complete property details or marketing copy..."></textarea>
+                        </div>
+
+                        <div class="form-group full">
+                            <label>Facilities (Comma separated)</label>
+                            <textarea id="propFacilities" rows="2" placeholder="e.g., Infinity Pool, Gym, BBQ Area, 24-hours Security..."></textarea>
+                        </div>
+
+                        <div class="form-group full">
+                            <label>Nearby Amenities (JSON Format for App UI)</label>
+                            <textarea id="propAmenities" rows="4" placeholder='{"transportation": ["LRT Puchong"], "shopping": ["IOI Mall"]}'></textarea>
+                            <small style="color: var(--text-muted); font-size: 11px;">*AI 会自动生成 JSON 格式。如手动输入，请确保格式正确。</small>
                         </div>
                         
                         <div class="form-group"><label>Status</label><select id="propStatus"><option value="Launching Soon">Launching Soon</option><option value="Ready 2025">Ready 2025</option><option value="Completed">Completed</option></select></div>
@@ -272,6 +299,9 @@
         const supabaseKey = 'sb_publishable_GnK_xyRsCtIO7vtE9k-zPw_eSs4Erd0';
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
         
+        // OpenAI API Key
+        const OPENAI_API_KEY = 'Sk-proj-tS7bzntxUGeaRcpY7TjtqsttfGUw8FxLcJvdV2MyGCiSVdjk0mUsXuaIbqy79DviK8FdDBDGJMT3BlbkFJI0INaqKSjWvFC6lNdfw4_QqEpr0UM0OfToBqIBnVzDo46aoOMCmU1ToaV6azrQWOViBCiC2hoA';
+
         let allProperties = [];
         let confirmActionCallback = null;
 
@@ -286,6 +316,101 @@
                 toast.classList.remove('show');
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
+        }
+
+        // ==========================================
+        // 核心逻辑 - 接入 OpenAI GPT-4o 解析房源资料
+        // ==========================================
+        async function parseWithAI() {
+            const rawText = document.getElementById('aiRawText').value;
+            const photoUrl = document.getElementById('aiImageUrl').value;
+            const parseBtn = document.getElementById('aiParseBtn');
+
+            if (!rawText.trim() && !photoUrl.trim()) {
+                showToast('请输入房源原始资料或提供图片链接', 'error');
+                return;
+            }
+
+            parseBtn.innerText = '🤖 AI 正在深度解析中...';
+            parseBtn.disabled = true;
+
+            const prompt = `
+            你是一个大马房地产资深助理。请从以下文本和图片中提取房源信息，严格输出为 JSON 格式。
+            需要的字段：
+            - title (楼盘名)
+            - location (区域位置)
+            - price (纯数字，去掉 RM)
+            - property_type (如 Condo, Landed)
+            - tenure (如 Freehold, Leasehold)
+            - bedrooms (如 3R2B)
+            - carparks (纯数字或范围)
+            - size_sqft (面积)
+            - facilities (小区设施，逗号分隔)
+            - property_highlight (1-2句话的核心卖点)
+            - description (完整描述)
+            - nearby_amenities (JSON对象，必须包含数组格式的分类：transportation, shopping, education, healthcare, highways)
+            
+            待解析文本: ${rawText}
+            `;
+
+            const requestBody = {
+                model: "gpt-4o",
+                response_format: { type: "json_object" },
+                messages: [
+                    {
+                        role: "user",
+                        content: photoUrl ? [
+                            { type: "text", text: prompt },
+                            { type: "image_url", image_url: { url: photoUrl } }
+                        ] : [
+                            { type: "text", text: prompt }
+                        ]
+                    }
+                ]
+            };
+
+            try {
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${OPENAI_API_KEY}`
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) throw new Error(`API 响应失败: ${response.status}`);
+
+                const data = await response.json();
+                const aiResult = JSON.parse(data.choices[0].message.content);
+
+                // 自动填表
+                const fillField = (id, value) => { if (document.getElementById(id) && value) document.getElementById(id).value = value; };
+
+                fillField('propTitle', aiResult.title);
+                fillField('propLocation', aiResult.location);
+                fillField('propPrice', aiResult.price);
+                fillField('propType', aiResult.property_type);
+                fillField('propTenure', aiResult.tenure);
+                fillField('propBeds', aiResult.bedrooms);
+                fillField('propParks', aiResult.carparks);
+                fillField('propSize', aiResult.size_sqft);
+                fillField('propFacilities', aiResult.facilities);
+                fillField('propHighlight', aiResult.property_highlight);
+                fillField('propDesc', aiResult.description);
+                
+                if (document.getElementById('propAmenities') && aiResult.nearby_amenities) {
+                    document.getElementById('propAmenities').value = JSON.stringify(aiResult.nearby_amenities, null, 2);
+                }
+
+                showToast('AI 解析完成，表单已自动填充', 'success');
+            } catch (error) {
+                console.error('AI 解析报错:', error);
+                showToast('AI 解析失败，请检查网络或资料格式', 'error');
+            } finally {
+                parseBtn.innerText = '🤖 AI 一键解析并自动填表';
+                parseBtn.disabled = false;
+            }
         }
 
         function showConfirm(msg, callback) {
@@ -416,7 +541,6 @@
                 data.forEach(prop => {
                     let insightsCount = 0;
                     try { if(prop.price_insights) insightsCount = prop.price_insights.length || 0; } catch(e){}
-                    // [UPDATED] Replaced Unsplash fallback with professional Placehold.co brand block
                     const safeImage = prop.image_url ? prop.image_url.split(',')[0].trim() : 'https://placehold.co/200x200/0B1D3A/C8A96E?text=No+Image';
                     tbody.innerHTML += `
                         <tr>
@@ -439,6 +563,8 @@
 
         function openPropertyModal() {
             document.getElementById('propertyForm').reset();
+            document.getElementById('aiRawText').value = '';
+            document.getElementById('aiImageUrl').value = '';
             document.getElementById('propId').value = '';
             document.getElementById('modalTitle').innerText = 'Add New Property';
             document.getElementById('insightsWrapper').innerHTML = '';
@@ -456,7 +582,11 @@
             document.getElementById('propLocation').value = prop.location || '';
             document.getElementById('propPrice').value = prop.price || '';
             
+            document.getElementById('propHighlight').value = prop.property_highlight || '';
             document.getElementById('propDesc').value = prop.description || '';
+            document.getElementById('propFacilities').value = prop.facilities || '';
+            document.getElementById('propAmenities').value = prop.nearby_amenities ? JSON.stringify(prop.nearby_amenities, null, 2) : '';
+
             document.getElementById('propLng').value = prop.lng || '';
             document.getElementById('propLat').value = prop.lat || '';
             
@@ -490,7 +620,22 @@
             const location = document.getElementById('propLocation').value.trim();
             const price = document.getElementById('propPrice').value;
 
+            const highlight = document.getElementById('propHighlight').value.trim();
             const description = document.getElementById('propDesc').value.trim();
+            const facilities = document.getElementById('propFacilities').value.trim();
+            
+            // 解析 JSONB
+            let amenitiesObj = null;
+            try {
+                if (document.getElementById('propAmenities').value.trim()) {
+                    amenitiesObj = JSON.parse(document.getElementById('propAmenities').value.trim());
+                }
+            } catch (e) {
+                console.warn("Amenities is not valid JSON", e);
+                showToast("Nearby Amenities JSON 格式有误，请检查", "error");
+                return;
+            }
+
             const lngVal = document.getElementById('propLng').value;
             const latVal = document.getElementById('propLat').value;
 
@@ -528,7 +673,10 @@
 
             const payload = {
                 title, location, price: Number(price),
+                property_highlight: highlight,
                 description: description, 
+                facilities: facilities,
+                nearby_amenities: amenitiesObj,
                 lng: lngVal ? parseFloat(lngVal) : null, 
                 lat: latVal ? parseFloat(latVal) : null, 
                 status: document.getElementById('propStatus').value,
