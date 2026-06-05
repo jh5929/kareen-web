@@ -208,10 +208,10 @@
             <div class="modal-body">
                 
                 <div class="ai-module">
-                    <h4 style="margin-top: 0; color: var(--navy);">🤖 AI 智能填表助手 (GPT-4o)</h4>
-                    <textarea id="aiRawText" rows="3" placeholder="在此粘贴发展商或中介发送的凌乱 WhatsApp 房源文案..." style="width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px;"></textarea>
-                    <input type="text" id="aiImageUrl" placeholder="[可选] 粘贴宣传图链接 (URL) 以启用 GPT-4o 视觉识别补充资料" style="width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px;">
-                    <button type="button" id="aiParseBtn" onclick="parseWithAI()" class="btn btn-primary auto-width" style="background: var(--gold); color: white;">🤖 AI 一键解析并自动填表</button>
+                    <h4 style="margin-top: 0; color: var(--navy);">🤖 AI Auto-Fill Assistant (GPT-4o)</h4>
+                    <textarea id="aiRawText" rows="3" placeholder="Paste messy WhatsApp text, developer notes, or raw descriptions here..." style="width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px;"></textarea>
+                    <input type="text" id="aiImageUrl" placeholder="[Optional] Paste an image URL to enable visual extraction..." style="width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px;">
+                    <button type="button" id="aiParseBtn" onclick="parseWithAI()" class="btn btn-primary auto-width" style="background: var(--gold); color: white;">🤖 Auto-Extract & Fill Form</button>
                 </div>
 
                 <form id="propertyForm">
@@ -237,9 +237,9 @@
                         </div>
 
                         <div class="form-group full">
-                            <label>Nearby Amenities (JSON Format for App UI)</label>
-                            <textarea id="propAmenities" rows="4" placeholder='{"transportation": ["LRT Puchong"], "shopping": ["IOI Mall"]}'></textarea>
-                            <small style="color: var(--text-muted); font-size: 11px;">*AI 会自动生成 JSON 格式。如手动输入，请确保格式正确。</small>
+                            <label>Nearby Amenities (Auto-formatted by AI)</label>
+                            <textarea id="propAmenities" rows="4" placeholder='AI will populate this automatically. You can also type normally here.'></textarea>
+                            <small style="color: var(--text-muted); font-size: 11px;">*AI handles the coding format. If you edit manually, just keep it simple.</small>
                         </div>
                         
                         <div class="form-group"><label>Status</label><select id="propStatus"><option value="Launching Soon">Launching Soon</option><option value="Ready 2025">Ready 2025</option><option value="Completed">Completed</option></select></div>
@@ -268,7 +268,7 @@
                     </div>
                     <div class="jsonb-container">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
-                            <label style="font-size: 13px; font-weight: 700; color: var(--navy); text-transform: uppercase;">Floor Plan Pricing (JSONB)</label>
+                            <label style="font-size: 13px; font-weight: 700; color: var(--navy); text-transform: uppercase;">Floor Plan Pricing</label>
                             <button type="button" class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;" onclick="addInsightRow()">+ Add Floor Plan</button>
                         </div>
                         <div id="insightsWrapper"></div>
@@ -319,7 +319,7 @@
         }
 
         // ==========================================
-        // 核心逻辑 - 接入 OpenAI GPT-4o 解析房源资料
+        // Bulletproof AI Parsing Logic
         // ==========================================
         async function parseWithAI() {
             const rawText = document.getElementById('aiRawText').value;
@@ -327,30 +327,46 @@
             const parseBtn = document.getElementById('aiParseBtn');
 
             if (!rawText.trim() && !photoUrl.trim()) {
-                showToast('请输入房源原始资料或提供图片链接', 'error');
+                showToast('Please paste some text or an image URL first.', 'error');
                 return;
             }
 
-            parseBtn.innerText = '🤖 AI 正在深度解析中...';
+            parseBtn.innerText = '🤖 AI is analyzing...';
             parseBtn.disabled = true;
 
+            // Highly strict prompt to ensure exact matching and prevent JSON crashes
             const prompt = `
-            你是一个大马房地产资深助理。请从以下文本和图片中提取房源信息，严格输出为 JSON 格式。
-            需要的字段：
-            - title (楼盘名)
-            - location (区域位置)
-            - price (纯数字，去掉 RM)
-            - property_type (如 Condo, Landed)
-            - tenure (如 Freehold, Leasehold)
-            - bedrooms (如 3R2B)
-            - carparks (纯数字或范围)
-            - size_sqft (面积)
-            - facilities (小区设施，逗号分隔)
-            - property_highlight (1-2句话的核心卖点)
-            - description (完整描述)
-            - nearby_amenities (JSON对象，必须包含数组格式的分类：transportation, shopping, education, healthcare, highways)
+            You are a top-tier Malaysian real estate assistant. Extract property details from the provided text and output strictly in JSON format.
+            If information is missing, leave it as an empty string "". 
+            Do not use markdown formatting like \`\`\`json in your response, return ONLY the raw JSON object.
             
-            待解析文本: ${rawText}
+            Strict value rules for dropdowns:
+            - "property_type": MUST BE EXACTLY "Residential", "Commercial", or "Land". Defaults to "Residential".
+            - "tenure": MUST BE EXACTLY "Freehold" or "Leasehold".
+            - "status": MUST BE EXACTLY "Launching Soon", "Ready 2025", or "Completed". Defaults to "Launching Soon".
+            - "price": MUST be a pure number without RM or commas (e.g., 550000). If not found, use 0.
+
+            Required JSON keys:
+            {
+              "title": "Property Name",
+              "location": "Area or City",
+              "price": 500000,
+              "property_type": "Residential",
+              "tenure": "Freehold",
+              "status": "Launching Soon",
+              "bedrooms": "e.g., 3 Beds",
+              "carparks": "e.g., 2 Lots",
+              "size_sqft": "e.g., 1000",
+              "facilities": "e.g., Pool, Gym, Security",
+              "property_highlight": "1 short sentence of the main selling point",
+              "description": "Full text description",
+              "nearby_amenities": {
+                "transportation": ["LRT X"],
+                "shopping": ["Mall Y"]
+              }
+            }
+            
+            Text to analyze: ${rawText}
             `;
 
             const requestBody = {
@@ -379,19 +395,32 @@
                     body: JSON.stringify(requestBody)
                 });
 
-                if (!response.ok) throw new Error(`API 响应失败: ${response.status}`);
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.error?.message || `API Error: ${response.status}`);
+                }
 
                 const data = await response.json();
-                const aiResult = JSON.parse(data.choices[0].message.content);
+                let aiResultText = data.choices[0].message.content;
+                
+                // Extra safety: Strip out accidental markdown block syntax if GPT goes rogue
+                aiResultText = aiResultText.replace(/```json/g, '').replace(/```/g, '').trim();
+                
+                const aiResult = JSON.parse(aiResultText);
 
-                // 自动填表
-                const fillField = (id, value) => { if (document.getElementById(id) && value) document.getElementById(id).value = value; };
+                // Auto-fill form
+                const fillField = (id, value) => { 
+                    if (document.getElementById(id) && value !== undefined && value !== null && value !== "") {
+                        document.getElementById(id).value = value; 
+                    }
+                };
 
                 fillField('propTitle', aiResult.title);
                 fillField('propLocation', aiResult.location);
                 fillField('propPrice', aiResult.price);
                 fillField('propType', aiResult.property_type);
                 fillField('propTenure', aiResult.tenure);
+                fillField('propStatus', aiResult.status);
                 fillField('propBeds', aiResult.bedrooms);
                 fillField('propParks', aiResult.carparks);
                 fillField('propSize', aiResult.size_sqft);
@@ -399,16 +428,16 @@
                 fillField('propHighlight', aiResult.property_highlight);
                 fillField('propDesc', aiResult.description);
                 
-                if (document.getElementById('propAmenities') && aiResult.nearby_amenities) {
+                if (document.getElementById('propAmenities') && typeof aiResult.nearby_amenities === 'object') {
                     document.getElementById('propAmenities').value = JSON.stringify(aiResult.nearby_amenities, null, 2);
                 }
 
-                showToast('AI 解析完成，表单已自动填充', 'success');
+                showToast('Analysis complete. Form auto-filled!', 'success');
             } catch (error) {
-                console.error('AI 解析报错:', error);
-                showToast('AI 解析失败，请检查网络或资料格式', 'error');
+                console.error('AI Parsing Error:', error);
+                showToast(`AI Error: ${error.message}`, 'error');
             } finally {
-                parseBtn.innerText = '🤖 AI 一键解析并自动填表';
+                parseBtn.innerText = '🤖 Auto-Extract & Fill Form';
                 parseBtn.disabled = false;
             }
         }
@@ -585,7 +614,11 @@
             document.getElementById('propHighlight').value = prop.property_highlight || '';
             document.getElementById('propDesc').value = prop.description || '';
             document.getElementById('propFacilities').value = prop.facilities || '';
-            document.getElementById('propAmenities').value = prop.nearby_amenities ? JSON.stringify(prop.nearby_amenities, null, 2) : '';
+            
+            // Format JSON back to text safely for editing
+            document.getElementById('propAmenities').value = prop.nearby_amenities && Object.keys(prop.nearby_amenities).length > 0 
+                ? JSON.stringify(prop.nearby_amenities, null, 2) 
+                : '';
 
             document.getElementById('propLng').value = prop.lng || '';
             document.getElementById('propLat').value = prop.lat || '';
@@ -614,6 +647,9 @@
             document.getElementById('propertyModal').classList.add('active');
         }
 
+        // ==========================================
+        // Safe Save Logic (Idiot-proof JSON)
+        // ==========================================
         async function saveProperty() {
             const id = document.getElementById('propId').value;
             const title = document.getElementById('propTitle').value.trim();
@@ -624,16 +660,17 @@
             const description = document.getElementById('propDesc').value.trim();
             const facilities = document.getElementById('propFacilities').value.trim();
             
-            // 解析 JSONB
+            // Idiot-proof JSON handler
             let amenitiesObj = null;
-            try {
-                if (document.getElementById('propAmenities').value.trim()) {
-                    amenitiesObj = JSON.parse(document.getElementById('propAmenities').value.trim());
+            const amText = document.getElementById('propAmenities').value.trim();
+            if (amText) {
+                try {
+                    amenitiesObj = JSON.parse(amText);
+                } catch (e) {
+                    console.warn("Amenities is not valid JSON, forcing fallback format.", e);
+                    // If Kareen typed normal text instead of JSON, we save it safely so the system doesn't break
+                    amenitiesObj = { "highlights": [amText] };
                 }
-            } catch (e) {
-                console.warn("Amenities is not valid JSON", e);
-                showToast("Nearby Amenities JSON 格式有误，请检查", "error");
-                return;
             }
 
             const lngVal = document.getElementById('propLng').value;
@@ -667,7 +704,7 @@
             });
 
             if(!isJsonValid) {
-                showToast('Floor plans must have at least a Type and Price to save properly.', 'error');
+                showToast('Floor plans must have at least a Type and Price.', 'error');
                 return;
             }
 
