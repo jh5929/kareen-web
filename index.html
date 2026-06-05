@@ -36,12 +36,10 @@
         img { max-width: 100%; display: block; }
         button, input, select { font-family: inherit; outline: none; }
 
-        /* Toast Styles */
         #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
         .toast { background: #fff; padding: 14px 24px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); font-size: 14px; font-weight: 600; transform: translateX(150%); transition: 0.3s; display: flex; align-items: center; border-left: 4px solid var(--primary); }
         .toast.show { transform: translateX(0); }
 
-        /* Header */
         header { position: sticky; top: 0; z-index: 40; background: var(--bg-dark); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; }
         .brand { font-family: 'Playfair Display', serif; font-weight: 700; font-size: 20px; letter-spacing: 1px; color: var(--primary); }
         .agent-profile { display: flex; align-items: center; gap: 10px; color: #fff; cursor: pointer; }
@@ -50,7 +48,6 @@
         .agent-info span:first-child { font-weight: 600; font-size: 14px; }
         .agent-info span:last-child { font-size: 10px; color: var(--primary); font-weight: 700; letter-spacing: 0.5px; }
 
-        /* Search Module */
         .search-module { background: var(--bg-darker); padding: 20px; color: #fff; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); z-index: 10; }
         .search-tabs { display: flex; background: #fff; border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
         .search-tabs button { flex: 1; padding: 12px 0; border: none; background: transparent; font-weight: 600; font-size: 13px; color: var(--text-main); cursor: pointer; transition: 0.2s; }
@@ -67,7 +64,6 @@
         .price-slider { width: 100%; appearance: none; height: 4px; border-radius: 4px; background: rgba(255,255,255,0.2); }
         .price-slider::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); border: 3px solid #fff; cursor: pointer; }
 
-        /* Filter Bottom Sheet */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; display: none; opacity: 0; transition: opacity 0.3s; }
         .filter-sheet { position: fixed; bottom: -100%; left: 0; width: 100%; background: #fff; border-top-left-radius: 24px; border-top-right-radius: 24px; padding: 24px; z-index: 201; transition: bottom 0.3s cubic-bezier(0.1, 0.8, 0.2, 1); max-height: 85vh; overflow-y: auto; max-width: var(--max-width); margin: 0 auto; right: 0; }
         .filter-sheet.active { bottom: 0; }
@@ -85,7 +81,6 @@
         .btn-reset { background: var(--bg-light); color: var(--text-main); border: 1px solid var(--border-color); }
         .btn-apply { background: var(--primary); color: var(--bg-dark); }
 
-        /* Card & Image Slider */
         .carousel { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 20px; padding-right: 20px; scroll-snap-type: x mandatory; scrollbar-width: none; flex-wrap: nowrap; }
         .carousel::-webkit-scrollbar { display: none; }
         .card { min-width: 280px; max-width: 280px; scroll-snap-align: start; background: var(--card-bg); border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid var(--border-color); overflow: hidden; position: relative; display: flex; flex-direction: column; cursor: pointer; }
@@ -111,7 +106,6 @@
         .card-title { font-size: 16px; font-weight: 700; color: var(--bg-dark); margin: 0 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .card-price { color: var(--primary); font-weight: 700; font-size: 15px; margin: 0; }
         
-        /* Mapbox UI Updates */
         #mapView { height: calc(100vh - 280px); width: 100%; position: relative; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; }
         .premium-marker { background-color: #C8A96E; width: 20px; height: 20px; border-radius: 50%; border: 3px solid #0B1D3A; box-shadow: 0 4px 8px rgba(0,0,0,0.3); cursor: pointer; transition: transform 0.2s ease; }
@@ -125,7 +119,6 @@
 
         .empty-state-msg { padding: 0 20px; font-size: 13px; color: var(--text-muted); font-style: italic; }
 
-        /* Compare Matrix & Schedule Matrix */
         #compareView, #scheduleView { padding: 20px; background: #fff; min-height: 100%; padding-bottom: 100px; }
         .compare-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; table-layout: fixed; }
         .compare-table th { background: var(--bg-dark); color: var(--primary); padding: 12px; font-family: 'Playfair Display', serif; font-size: 14px; text-align: left; }
@@ -142,7 +135,6 @@
         .time-slot.disabled { opacity: 0.4; cursor: not-allowed; background: #eaeaea; text-decoration: line-through; }
         .lead-form input, .lead-form select { width: 100%; padding: 14px; margin-bottom: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; font-family: inherit; background: var(--bg-light); }
 
-        /* Profile View */
         #profileView { background: var(--bg-light); min-height: 100%; padding-bottom: 100px; }
         .profile-hero { background: var(--bg-dark); color: #fff; padding: 40px 24px 30px; text-align: center; border-bottom-left-radius: 30px; border-bottom-right-radius: 30px; }
         .profile-avatar { width: 120px; height: 120px; border-radius: 50%; border: 3px solid var(--primary); object-fit: cover; margin: 0 auto 16px; object-position: top; }
@@ -167,7 +159,6 @@
         .badge-news { font-size: 10px; background: var(--primary); color: #fff; padding: 4px 8px; border-radius: 4px; font-weight: 700; letter-spacing: 0.5px; }
         .insight-item-card small { font-size: 11px; color: #aaa; font-weight: 600; }
 
-        /* Detail Overlay & Bottom Nav */
         .view-section { display: none; animation: fadeIn 0.3s; }
         .view-section.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -181,7 +172,6 @@
         .project-hero { position: relative; height: 320px; background: #eee; overflow: hidden; }
         .project-hero img { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease; }
         
-        /* NEW: Detail View Slider Arrows */
         .detail-slider-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.4); color: #fff; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 16px; z-index: 10; display: flex; justify-content: center; align-items: center; transition: 0.2s; }
         .detail-slider-btn:hover { background: rgba(0,0,0,0.7); }
         .detail-slider-btn.prev { left: 16px; }
@@ -227,7 +217,7 @@
             <div class="brand">KAREEN.</div>
             <div class="agent-profile" onclick="switchNav('profile', document.getElementById('nav-profile'))">
                 <div class="agent-info"><span>Kareen Loke</span><span>REN 72111</span></div>
-                <img src="image.png" alt="Agent" onerror="this.src='https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=100&auto=format&fit=crop'">
+                <img src="image.png" alt="Agent" onerror="this.src='https://placehold.co/400x400/0B1D3A/C8A96E?text=Kareen+Loke'">
             </div>
         </header>
 
@@ -315,7 +305,7 @@
 
             <div id="profileView" class="view-section">
                 <div class="profile-hero">
-                    <img src="image.png" alt="Kareen Loke" class="profile-avatar" onerror="this.src='https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=400&auto=format&fit=crop'">
+                    <img src="image.png" alt="Kareen Loke" class="profile-avatar" onerror="this.src='https://placehold.co/400x400/0B1D3A/C8A96E?text=Kareen+Loke'">
                     <h1>Kareen Loke 陆嘉欣</h1>
                     <div style="font-size: 12px; font-weight: 600; letter-spacing: 1px; margin-bottom: 8px;">TEAM LEADER (REN 72111)</div>
                     <div style="font-size: 13px; opacity: 0.8;">Knight World Realty (M) Sdn Bhd</div>
@@ -371,7 +361,7 @@
             <div class="project-hero">
                 <div class="tag" style="top: 16px; left: 16px;" id="detail-tag">Details</div>
                 <button class="detail-slider-btn prev" onclick="changeDetailImage(-1)">❮</button>
-                <img src="" alt="Property Data Image" id="detail-img" data-images="" data-current="0" onerror="this.src='https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=800&auto=format&fit=crop'">
+                <img src="" alt="Property Data Image" id="detail-img" data-images="" data-current="0" onerror="this.src='https://placehold.co/800x600/0B1D3A/C8A96E?text=KAREEN+PREMIUM+ASSET'">
                 <button class="detail-slider-btn next" onclick="changeDetailImage(1)">❯</button>
             </div>
             
@@ -379,6 +369,7 @@
                 <h1 class="detail-title" id="detail-title">Project Title</h1>
                 <div class="detail-location" id="detail-location">Location</div>
                 <div class="detail-price" id="detail-price">RM 0</div>
+                
                 <h2 class="section-title">Property Basics</h2>
                 <div class="details-grid">
                     <div class="details-item"><span>Property Classification</span><span id="detail-type">Residential</span></div>
@@ -387,6 +378,12 @@
                     <div class="details-item"><span>Size / Capacity</span><span id="detail-size">Low Density</span></div>
                 </div>
             </div>
+            
+            <div class="detail-section" id="detail-desc-section" style="display:none; padding-top: 0;">
+                <h2 class="section-title">Property Description</h2>
+                <p id="detail-description" style="font-size: 14px; color: var(--text-muted); line-height: 1.6; margin: 0; white-space: pre-line;"></p>
+            </div>
+
             <div id="detail-vr-section" class="detail-section">
                 <h2 class="section-title">Virtual Projection Space (3D VR)</h2>
                 <div class="media-container">
@@ -396,7 +393,7 @@
             <div class="detail-section">
                 <h2 class="section-title">Floor Layout Blueprint</h2>
                 <div class="floorplan-img">
-                    <img src="https://images.unsplash.com/photo-1628624747186-a941c476b7ef?q=80&w=800&auto=format&fit=crop" alt="Structural Schematics">
+                    <img src="https://placehold.co/800x600/F9F7F2/0B1D3A?text=Floorplan+Schematics" alt="Structural Schematics">
                 </div>
             </div>
             <div class="detail-section" style="background: var(--bg-light);">
@@ -493,7 +490,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        // 1. SUPABASE CORE & GLOBALS
         const supabaseUrl = 'https://fryynuhukubqppilqpfk.supabase.co';
         const supabaseKey = 'sb_publishable_GnK_xyRsCtIO7vtE9k-zPw_eSs4Erd0';
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
@@ -503,7 +499,6 @@
         let savedListIds = [];
         let currentBookingDate = "";
         
-        // Mapbox Globals
         let mapboxMap = null;
         let mapMarkers = [];
 
@@ -514,10 +509,7 @@
             toast.innerText = msg;
             container.appendChild(toast);
             setTimeout(() => toast.classList.add('show'), 10);
-            setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
+            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3000);
         }
 
         async function executeCloudDataSync() {
@@ -530,21 +522,18 @@
             } catch (err) {
                 console.warn("Supabase fetch failed.");
             } finally {
-                initMapbox(); // 初始化地图引擎
+                initMapbox();
                 applyAllFilters();
                 generateCalendar();
             }
         }
 
-        // =========================================================
-        // MAPBOX ENGINE 初始化与数据同步
-        // =========================================================
         function initMapbox() {
             mapboxgl.accessToken = 'pk.eyJ1Ijoia3Jpc2xva2UiLCJhIjoiY21xMTQ4eXBuMDcxYTJyczdib3c0cWkyZSJ9._8hUTQ1gWo9_2LkqIkHqjw';
             mapboxMap = new mapboxgl.Map({
                 container: 'map', 
-                style: 'mapbox://styles/mapbox/light-v11', // 素雅底图
-                center: [101.7185, 3.1420], // 默认 KL 中心
+                style: 'mapbox://styles/mapbox/light-v11', 
+                center: [101.7185, 3.1420], 
                 zoom: 11,
                 pitch: 45,
                 bearing: -17.6
@@ -552,7 +541,6 @@
             mapboxMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
         }
 
-        // 生成稳定的伪随机经纬度（如果你数据库里没有 lng/lat，用这个模拟展示，不会乱跳）
         function getSeededRandom(seedStr) {
             let h = 0;
             for(let i=0; i<seedStr.length; i++) { h = Math.imul(31, h) + seedStr.charCodeAt(i) | 0; }
@@ -561,13 +549,10 @@
 
         function updateMapData(records) {
             if (!mapboxMap) return;
-            
-            // 清除旧的 Marker
             mapMarkers.forEach(m => m.remove());
             mapMarkers = [];
 
             records.forEach(asset => {
-                // 如果数据库没有真实的 lng/lat，我们根据房源名字生成固定的模拟坐标用于演示
                 let rnd = getSeededRandom(asset.id || asset.title);
                 let lng = asset.lng || (101.62 + rnd() * 0.15); 
                 let lat = asset.lat || (3.05 + rnd() * 0.15);
@@ -596,9 +581,6 @@
             });
         }
 
-        // =========================================================
-        // 图片滑动逻辑 (列表卡片 & 详情页共用)
-        // =========================================================
         function changeCardImage(event, btn, direction) {
             event.stopPropagation();
             const container = btn.parentElement;
@@ -606,31 +588,27 @@
             _slideImage(imgEl, direction);
         }
 
-        // [NEW] 详情页内部的图片滑动
         function changeDetailImage(direction) {
             const imgEl = document.getElementById('detail-img');
             _slideImage(imgEl, direction);
         }
 
-        // 核心滑动函数
         function _slideImage(imgEl, direction) {
             const imgData = imgEl.getAttribute('data-images');
             if(!imgData) return;
-            
             const imgList = imgData.split(',');
-            if(imgList.length <= 1) return; // 只有一张图就不滑了
+            if(imgList.length <= 1) return; 
 
             let currentIndex = parseInt(imgEl.getAttribute('data-current') || 0);
-            
             currentIndex += direction;
             if (currentIndex >= imgList.length) currentIndex = 0; 
             if (currentIndex < 0) currentIndex = imgList.length - 1;
             
-            imgEl.style.opacity = 0; // 淡出
+            imgEl.style.opacity = 0; 
             setTimeout(() => {
                 imgEl.src = imgList[currentIndex].trim();
                 imgEl.setAttribute('data-current', currentIndex);
-                imgEl.style.opacity = 1; // 淡入
+                imgEl.style.opacity = 1; 
             }, 150);
         }
 
@@ -693,8 +671,6 @@
 
             renderActiveCardsToDOM(processedResults);
             renderSavedCardsToDOM();
-            
-            // [NEW] 每次筛选后，同步刷新地图上的大头针！
             updateMapData(processedResults);
         }
 
@@ -727,8 +703,9 @@
                 const isSaved = savedListIds.includes(asset.id) ? 'saved' : '';
                 const saveIcon = savedListIds.includes(asset.id) ? 'Saved' : 'Save';
                 
-                const imgDisplay = asset.image_url || 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=600&auto=format&fit=crop';
-                const dummyGallery = `${imgDisplay},https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=600&auto=format&fit=crop,https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=600&auto=format&fit=crop`;
+                // [UPDATED] Remove dummy Unsplash photos. Use real DB multi-images or generic placeholder.
+                const safeImage = asset.image_url ? asset.image_url.split(',')[0].trim() : 'https://placehold.co/600x400/0B1D3A/C8A96E?text=KAREEN+PREMIUM+ASSET';
+                const galleryData = asset.image_url ? asset.image_url : safeImage;
 
                 let cardHTML = `
                     <div class="card" onclick="openDetailView('${asset.id}')">
@@ -738,7 +715,7 @@
                             <div class="compare-badge ${isCompared}" onclick="toggleCompare(event, '${asset.id}')">${compareIcon}</div>
                             
                             <button class="slider-arrow prev-arr" onclick="changeCardImage(event, this, -1)">❮</button>
-                            <img class="main-card-img" src="${imgDisplay}" data-images="${dummyGallery}" data-current="0" alt="${asset.title}">
+                            <img class="main-card-img" src="${safeImage}" data-images="${galleryData}" data-current="0" alt="${asset.title}" onerror="this.src='https://placehold.co/600x400/0B1D3A/C8A96E?text=IMAGE+ERROR'">
                             <button class="slider-arrow next-arr" onclick="changeCardImage(event, this, 1)">❯</button>
                         </div>
                         <div class="card-body">
@@ -770,8 +747,10 @@
                 const price = parseInt(asset.price || 0);
                 const isCompared = compareListIds.includes(asset.id) ? 'selected' : '';
                 const compareIcon = compareListIds.includes(asset.id) ? 'Compared' : '+ Compare';
-                const imgDisplay = asset.image_url || 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=600&auto=format&fit=crop';
-                const dummyGallery = `${imgDisplay},https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=600&auto=format&fit=crop,https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=600&auto=format&fit=crop`;
+                
+                // [UPDATED] Remove dummy Unsplash photos
+                const safeImage = asset.image_url ? asset.image_url.split(',')[0].trim() : 'https://placehold.co/600x400/0B1D3A/C8A96E?text=KAREEN+PREMIUM+ASSET';
+                const galleryData = asset.image_url ? asset.image_url : safeImage;
 
                 savedContainer.innerHTML += `
                     <div class="card" onclick="openDetailView('${asset.id}')">
@@ -781,7 +760,7 @@
                             <div class="compare-badge ${isCompared}" onclick="toggleCompare(event, '${asset.id}')">${compareIcon}</div>
                             
                             <button class="slider-arrow prev-arr" onclick="changeCardImage(event, this, -1)">❮</button>
-                            <img class="main-card-img" src="${imgDisplay}" data-images="${dummyGallery}" data-current="0" alt="${asset.title}">
+                            <img class="main-card-img" src="${safeImage}" data-images="${galleryData}" data-current="0" alt="${asset.title}" onerror="this.src='https://placehold.co/600x400/0B1D3A/C8A96E?text=IMAGE+ERROR'">
                             <button class="slider-arrow next-arr" onclick="changeCardImage(event, this, 1)">❯</button>
                         </div>
                         <div class="card-body">
@@ -1008,19 +987,28 @@
                 document.getElementById('detail-location').innerText = t.location;
                 document.getElementById('detail-price').innerText = `From RM ${parseInt(t.price).toLocaleString()}`;
                 
-                // [NEW] 注入详情页图片画廊数据
-                const imgDisplay = t.image_url || 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=800&auto=format&fit=crop';
-                const dummyGallery = `${imgDisplay},https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=800&auto=format&fit=crop,https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=800&auto=format&fit=crop`;
+                // [UPDATED] Remove dummy Unsplash photos
+                const safeImage = t.image_url ? t.image_url.split(',')[0].trim() : 'https://placehold.co/800x600/0B1D3A/C8A96E?text=KAREEN+PREMIUM+ASSET';
+                const galleryData = t.image_url ? t.image_url : safeImage;
                 
                 const detailImg = document.getElementById('detail-img');
-                detailImg.src = imgDisplay;
-                detailImg.setAttribute('data-images', dummyGallery);
+                detailImg.src = safeImage;
+                detailImg.setAttribute('data-images', galleryData);
                 detailImg.setAttribute('data-current', '0');
                 
                 document.getElementById('detail-type').innerText = t.property_type || 'Residential';
                 document.getElementById('detail-beds').innerText = t.bedrooms || '2 - 3 Beds';
                 document.getElementById('detail-tenure').innerText = t.tenure || 'Freehold';
                 document.getElementById('detail-size').innerText = t.size_sqft || 'TBA sqft';
+
+                const descBlock = document.getElementById('detail-desc-section');
+                const descText = document.getElementById('detail-description');
+                if(t.description && t.description.trim() !== "") {
+                    descText.innerText = t.description;
+                    descBlock.style.display = 'block';
+                } else {
+                    descBlock.style.display = 'none';
+                }
                 
                 document.getElementById('sliderPrice').value = t.price || 550000;
                 calculateMortgage();
@@ -1050,7 +1038,6 @@
             document.getElementById('listView').style.display = (type === 'map') ? 'none' : 'block';
             document.getElementById('mapView').style.display = (type === 'map') ? 'block' : 'none';
 
-            // [NEW] 解决 Mapbox 在隐藏的 div 中初始化时宽高为 0 的问题
             if (type === 'map' && mapboxMap) {
                 setTimeout(() => mapboxMap.resize(), 100);
             }

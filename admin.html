@@ -18,19 +18,16 @@
         * { box-sizing: border-box; }
         body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background-color: var(--bg-main); color: var(--text-dark); }
         
-        /* Toast UI */
         #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
         .toast { background: #fff; padding: 14px 24px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); font-size: 14px; font-weight: 600; transform: translateX(150%); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 10px; border-left: 4px solid var(--navy); }
         .toast.show { transform: translateX(0); }
         .toast.success { border-color: var(--success-text); }
         .toast.error { border-color: var(--danger-text); }
 
-        /* Login Screen */
         #login-view { display: flex; height: 100vh; justify-content: center; align-items: center; background: var(--navy); }
         .login-card { background: #fff; padding: 40px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
         .login-card h2 { margin: 0 0 24px; color: var(--navy); text-align: center; }
 
-        /* Layout */
         .dashboard-container { display: none; min-height: 100vh; }
         .sidebar { width: 260px; background-color: var(--navy); color: #fff; padding: 30px 20px; display: flex; flex-direction: column; gap: 40px; position: fixed; height: 100vh; z-index: 100; transition: transform 0.3s ease; }
         .sidebar .logo { font-size: 22px; font-weight: 700; letter-spacing: 1px; color: var(--gold); }
@@ -47,7 +44,6 @@
         .dashboard-header h1 { margin: 0; font-size: 28px; color: var(--navy); display: flex; align-items: center; gap: 12px; }
         .hamburger { display: none; background: transparent; border: none; font-size: 24px; color: var(--navy); cursor: pointer; }
 
-        /* Stats & Tables */
         .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
         .stat-card { background-color: var(--panel-bg); padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 1px solid var(--border); }
         .stat-card label { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
@@ -59,7 +55,6 @@
         .crm-table th { background-color: #f8fafc; padding: 16px 24px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); }
         .crm-table td { padding: 18px 24px; border-bottom: 1px solid var(--border); vertical-align: middle; }
         
-        /* UI Elements */
         .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
         .status-badge.pending { background-color: var(--pending-bg); color: var(--pending-text); }
         .status-badge.completed { background-color: var(--success-bg); color: var(--success-text); }
@@ -72,7 +67,6 @@
         .btn-primary:hover { opacity: 0.9; }
         .btn-danger { background-color: var(--danger-bg); color: var(--danger-text); border: 1px solid #f5c6cb; }
 
-        /* Modal Settings */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px; backdrop-filter: blur(4px); }
         .modal-overlay.active { display: flex; }
         .modal-content { background: #fff; width: 100%; max-width: 800px; max-height: 90vh; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
@@ -84,17 +78,16 @@
         .form-group { display: flex; flex-direction: column; gap: 6px; }
         .form-group.full { grid-column: span 2; }
         .form-group label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
-        .form-group input, .form-group select { padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: #f8fafc; }
-        .form-group input:focus { border-color: var(--navy); outline: none; background: #fff; }
+        .form-group input, .form-group select, .form-group textarea { padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: #f8fafc; font-family: inherit; }
+        .form-group input:focus, .form-group textarea:focus { border-color: var(--navy); outline: none; background: #fff; }
+        .form-group textarea { resize: vertical; }
 
         .jsonb-container { border: 1px solid var(--border); border-radius: 8px; padding: 16px; background: #f8fafc; }
         .dynamic-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 10px; margin-bottom: 10px; background: #fff; padding: 10px; border: 1px solid var(--border); border-radius: 6px; }
         .dynamic-row input { padding: 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; width: 100%; }
 
-        /* Custom Confirm Modal small */
         .confirm-card { max-width: 400px; padding: 24px; background: #fff; border-radius: 12px; text-align: center; }
 
-        /* Mobile Responsiveness */
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); }
             .sidebar.open { transform: translateX(0); }
@@ -216,13 +209,34 @@
                         <div class="form-group full"><label>Project Title *</label><input type="text" id="propTitle" required placeholder="e.g., IOI Rio Puchong"></div>
                         <div class="form-group"><label>Location *</label><input type="text" id="propLocation" required placeholder="e.g., Bandar Puteri, Puchong"></div>
                         <div class="form-group"><label>Base Price (Numeric) *</label><input type="number" id="propPrice" required placeholder="e.g., 550000"></div>
+                        
+                        <div class="form-group full">
+                            <label>Property Description</label>
+                            <textarea id="propDesc" rows="4" placeholder="Enter property details, selling points, or marketing copy..."></textarea>
+                        </div>
+                        
                         <div class="form-group"><label>Status</label><select id="propStatus"><option value="Launching Soon">Launching Soon</option><option value="Ready 2025">Ready 2025</option><option value="Completed">Completed</option></select></div>
                         <div class="form-group"><label>Property Type</label><select id="propType"><option value="Residential">Residential</option><option value="Commercial">Commercial</option><option value="Land">Land</option></select></div>
                         <div class="form-group"><label>Tenure</label><select id="propTenure"><option value="Freehold">Freehold</option><option value="Leasehold">Leasehold</option></select></div>
                         <div class="form-group"><label>Overall Size (sqft)</label><input type="text" id="propSize" placeholder="e.g., 770-1100 sqft"></div>
                         <div class="form-group"><label>Bedrooms Range</label><input type="text" id="propBeds" placeholder="e.g., 2 - 3 Beds"></div>
                         <div class="form-group"><label>Carparks</label><input type="text" id="propParks" placeholder="e.g., 1-2 Lots"></div>
-                        <div class="form-group full"><label>Cover Image URL</label><input type="url" id="propImage" placeholder="https://..."></div>
+                        
+                        <div class="form-group">
+                            <label>Map Longitude (Lng)</label>
+                            <input type="number" step="any" id="propLng" placeholder="e.g., 101.6168">
+                        </div>
+                        <div class="form-group">
+                            <label>Map Latitude (Lat)</label>
+                            <input type="number" step="any" id="propLat" placeholder="e.g., 3.0236">
+                        </div>
+
+                        <div class="form-group full">
+                            <label>Cover Image URL (Separate multiple images with commas ',')</label>
+                            <input type="url" id="propImage" placeholder="e.g. img1.jpg, img2.jpg" oninput="document.getElementById('imgPreview').src = this.value.split(',')[0].trim(); document.getElementById('imgPreview').style.display = 'block';">
+                            <img id="imgPreview" src="" style="margin-top: 10px; max-width: 100%; height: 200px; object-fit: cover; border-radius: 8px; display: none;" onerror="this.style.display='none'" onload="this.style.display='block'">
+                        </div>
+
                         <div class="form-group full"><label>3D VR URL (Optional)</label><input type="url" id="propVr" placeholder="https://..."></div>
                     </div>
                     <div class="jsonb-container">
@@ -288,13 +302,8 @@
             }
         }, 1000);
 
-        function toggleSidebar(e) {
-            e.stopPropagation();
-            document.getElementById('sidebar').classList.toggle('open');
-        }
-        function closeSidebarOnMobile() {
-            if(window.innerWidth <= 768) { document.getElementById('sidebar').classList.remove('open'); }
-        }
+        function toggleSidebar(e) { e.stopPropagation(); document.getElementById('sidebar').classList.toggle('open'); }
+        function closeSidebarOnMobile() { if(window.innerWidth <= 768) { document.getElementById('sidebar').classList.remove('open'); } }
 
         async function checkSession() {
             const { data: { session } } = await supabaseClient.auth.getSession();
@@ -322,7 +331,6 @@
             showToast('Logged out securely.', 'success');
             checkSession();
         }
-
         checkSession();
 
         function switchTab(tabId, element) {
@@ -370,11 +378,7 @@
             } catch (err) { showToast(err.message, 'error'); }
         }
 
-        function updateMetrics(t, p, c) {
-            document.getElementById('stat-total').innerText = t;
-            document.getElementById('stat-pending').innerText = p;
-            document.getElementById('stat-completed').innerText = c;
-        }
+        function updateMetrics(t, p, c) { document.getElementById('stat-total').innerText = t; document.getElementById('stat-pending').innerText = p; document.getElementById('stat-completed').innerText = c; }
 
         async function updateLeadStatus(id, targetStatus) {
             try {
@@ -385,7 +389,6 @@
             } catch (err) { showToast('Status update failed.', 'error'); }
         }
 
-        // 新增的删除预约客资功能
         function deleteAppointment(id) {
             showConfirm("Are you sure you want to permanently delete this lead?", async () => {
                 try {
@@ -413,9 +416,11 @@
                 data.forEach(prop => {
                     let insightsCount = 0;
                     try { if(prop.price_insights) insightsCount = prop.price_insights.length || 0; } catch(e){}
+                    // [UPDATED] Replaced Unsplash fallback with professional Placehold.co brand block
+                    const safeImage = prop.image_url ? prop.image_url.split(',')[0].trim() : 'https://placehold.co/200x200/0B1D3A/C8A96E?text=No+Image';
                     tbody.innerHTML += `
                         <tr>
-                            <td><img src="${prop.image_url}" alt="cover" style="width: 50px; height: 50px; border-radius: 6px; object-fit: cover;"></td>
+                            <td><img src="${safeImage}" onerror="this.src='https://placehold.co/200x200/0B1D3A/C8A96E?text=ERROR'" alt="cover" style="width: 50px; height: 50px; border-radius: 6px; object-fit: cover;"></td>
                             <td>
                                 <div style="font-weight: 700; color: var(--navy);">${escapeHtml(prop.title)}</div>
                                 <div style="font-size: 11px; color: var(--text-muted);">${insightsCount} Floor Plans attached</div>
@@ -437,6 +442,7 @@
             document.getElementById('propId').value = '';
             document.getElementById('modalTitle').innerText = 'Add New Property';
             document.getElementById('insightsWrapper').innerHTML = '';
+            document.getElementById('imgPreview').style.display = 'none';
             document.getElementById('propertyModal').classList.add('active');
         }
         function closePropertyModal() { document.getElementById('propertyModal').classList.remove('active'); }
@@ -449,6 +455,11 @@
             document.getElementById('propTitle').value = prop.title || '';
             document.getElementById('propLocation').value = prop.location || '';
             document.getElementById('propPrice').value = prop.price || '';
+            
+            document.getElementById('propDesc').value = prop.description || '';
+            document.getElementById('propLng').value = prop.lng || '';
+            document.getElementById('propLat').value = prop.lat || '';
+            
             document.getElementById('propStatus').value = prop.status || 'Launching Soon';
             document.getElementById('propType').value = prop.property_type || 'Residential';
             document.getElementById('propTenure').value = prop.tenure || 'Freehold';
@@ -457,6 +468,13 @@
             document.getElementById('propParks').value = prop.carparks || '';
             document.getElementById('propImage').value = prop.image_url || '';
             document.getElementById('propVr').value = prop.vr_url || '';
+            
+            if(prop.image_url) {
+                document.getElementById('imgPreview').src = prop.image_url.split(',')[0].trim();
+                document.getElementById('imgPreview').style.display = 'block';
+            } else {
+                document.getElementById('imgPreview').style.display = 'none';
+            }
             
             const wrapper = document.getElementById('insightsWrapper');
             wrapper.innerHTML = '';
@@ -471,6 +489,10 @@
             const title = document.getElementById('propTitle').value.trim();
             const location = document.getElementById('propLocation').value.trim();
             const price = document.getElementById('propPrice').value;
+
+            const description = document.getElementById('propDesc').value.trim();
+            const lngVal = document.getElementById('propLng').value;
+            const latVal = document.getElementById('propLat').value;
 
             if(!title || !location || !price) { 
                 showToast('Please fill in required fields (Title, Location, Price).', 'error'); 
@@ -506,6 +528,9 @@
 
             const payload = {
                 title, location, price: Number(price),
+                description: description, 
+                lng: lngVal ? parseFloat(lngVal) : null, 
+                lat: latVal ? parseFloat(latVal) : null, 
                 status: document.getElementById('propStatus').value,
                 property_type: document.getElementById('propType').value,
                 tenure: document.getElementById('propTenure').value,
