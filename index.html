@@ -4,9 +4,14 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Kareen Loke | Premium Real Estate</title>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,700&display=swap" rel="stylesheet">
+    
+    <script src='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css' rel='stylesheet' />
+
     <style>
         :root {
             --primary: #C8A96E;
@@ -80,20 +85,20 @@
         .btn-reset { background: var(--bg-light); color: var(--text-main); border: 1px solid var(--border-color); }
         .btn-apply { background: var(--primary); color: var(--bg-dark); }
 
-        /* Views */
-        .view-container { flex: 1; position: relative; }
-        .view-section { display: none; animation: fadeIn 0.3s; }
-        .view-section.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .section { padding: 24px 0 10px 20px; }
-        .section-header { display: flex; justify-content: space-between; align-items: center; padding-right: 20px; margin-bottom: 16px; }
-        .section-header h2 { font-family: 'Playfair Display', serif; font-size: 20px; margin: 0; color: var(--bg-dark); }
+        /* Card & Image Slider */
         .carousel { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 20px; padding-right: 20px; scroll-snap-type: x mandatory; scrollbar-width: none; flex-wrap: nowrap; }
         .carousel::-webkit-scrollbar { display: none; }
         .card { min-width: 280px; max-width: 280px; scroll-snap-align: start; background: var(--card-bg); border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid var(--border-color); overflow: hidden; position: relative; display: flex; flex-direction: column; cursor: pointer; }
-        .card-img { height: 180px; position: relative; background: #eee; }
-        .card-img img { width: 100%; height: 100%; object-fit: cover; }
-        .tag { position: absolute; top: 10px; left: 10px; background: rgba(11, 29, 58, 0.85); color: var(--primary); backdrop-filter: blur(4px); font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-transform: uppercase; pointer-events: none; }
+        
+        .card-img { height: 180px; position: relative; background: #eee; width: 100%; overflow: hidden; }
+        .main-card-img { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease; }
+        
+        .slider-arrow { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0, 0, 0, 0.4); color: #fff; border: none; padding: 8px 12px; cursor: pointer; font-size: 14px; z-index: 10; border-radius: 4px; display: none; }
+        .card:hover .slider-arrow { display: block; }
+        .prev-arr { left: 8px; }
+        .next-arr { right: 8px; }
+
+        .tag { position: absolute; top: 10px; left: 10px; background: rgba(11, 29, 58, 0.85); color: var(--primary); backdrop-filter: blur(4px); font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 6px; text-transform: uppercase; pointer-events: none; z-index: 2; }
         .tag.completed { background: var(--success); color: #fff; }
         
         .save-badge { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.9); border: 1px solid var(--border-color); color: var(--bg-dark); font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; cursor: pointer; transition: 0.2s; z-index: 2; }
@@ -106,33 +111,36 @@
         .card-title { font-size: 16px; font-weight: 700; color: var(--bg-dark); margin: 0 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .card-price { color: var(--primary); font-weight: 700; font-size: 15px; margin: 0; }
         
-        #mapView { height: calc(100vh - 280px); width: 100%; background: #e0e0e0; position: relative; }
+        /* Mapbox UI Updates */
+        #mapView { height: calc(100vh - 280px); width: 100%; position: relative; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; }
+        .premium-marker { background-color: #C8A96E; width: 20px; height: 20px; border-radius: 50%; border: 3px solid #0B1D3A; box-shadow: 0 4px 8px rgba(0,0,0,0.3); cursor: pointer; transition: transform 0.2s ease; }
+        .premium-marker:hover { transform: scale(1.3); z-index: 10; }
+        .mapboxgl-popup-content { background-color: #0B1D3A; color: #F8F9FA; border-radius: 8px; padding: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); border: 1px solid #C8A96E; min-width: 200px; }
+        .mapboxgl-popup-close-button { color: #C8A96E; font-size: 16px; right: 8px; top: 5px; }
+        .popup-title { font-weight: bold; font-size: 16px; margin-bottom: 5px; color: #C8A96E;}
+        .popup-price { font-size: 14px; font-weight: bold; margin-bottom: 5px;}
+        .popup-desc { font-size: 11px; color: #A0AABF; margin-bottom: 10px;}
+        .popup-btn { font-size: 11px; font-weight: 600; background: #C8A96E; color: #0B1D3A; display: block; text-align: center; padding: 6px 0; border-radius: 4px; cursor:pointer; text-transform: uppercase; }
+
         .empty-state-msg { padding: 0 20px; font-size: 13px; color: var(--text-muted); font-style: italic; }
 
-        /* Compare Matrix */
-        #compareView { padding: 20px; background: #fff; min-height: 100%; padding-bottom: 100px; }
+        /* Compare Matrix & Schedule Matrix */
+        #compareView, #scheduleView { padding: 20px; background: #fff; min-height: 100%; padding-bottom: 100px; }
         .compare-table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; table-layout: fixed; }
         .compare-table th { background: var(--bg-dark); color: var(--primary); padding: 12px; font-family: 'Playfair Display', serif; font-size: 14px; text-align: left; }
         .compare-table td { padding: 14px 12px; border-bottom: 1px solid var(--border-color); color: var(--text-main); font-weight: 500; word-wrap: break-word; }
         .compare-table tr:nth-child(even) { background: var(--bg-light); }
-        .compare-label { font-weight: 700; color: var(--bg-dark); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; width: 30%; }
-        .empty-compare { text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 14px; }
-
-        /* Schedule Matrix */
-        #scheduleView { padding: 24px; background: #fff; min-height: 100%; padding-bottom: 100px; }
+        .compare-label { font-weight: 700; color: var(--bg-dark); text-transform: uppercase; font-size: 11px; width: 30%; }
+        
         .date-scroller { display: flex; gap: 12px; overflow-x: auto; margin-bottom: 24px; padding-bottom: 10px; scrollbar-width: none; }
-        .date-scroller::-webkit-scrollbar { display: none; }
         .date-card { min-width: 70px; border: 1px solid var(--border-color); border-radius: 12px; padding: 12px 10px; text-align: center; cursor: pointer; transition: 0.2s; background: var(--bg-light); }
         .date-card.selected { background: var(--bg-dark); color: var(--primary); border-color: var(--bg-dark); box-shadow: 0 4px 10px rgba(11, 29, 58, 0.2); }
-        .date-day { font-size: 11px; text-transform: uppercase; font-weight: 700; margin-bottom: 4px; color: var(--text-muted); }
-        .date-card.selected .date-day { color: #fff; opacity: 0.8; }
-        .date-num { font-size: 20px; font-weight: 700; font-family: 'Playfair Display', serif; }
         .time-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
         .time-slot { border: 1px solid var(--border-color); background: var(--bg-light); padding: 14px; border-radius: 8px; text-align: center; font-size: 14px; font-weight: 600; color: var(--bg-dark); cursor: pointer; transition: 0.2s; }
-        .time-slot.selected { background: var(--primary); color: var(--bg-dark); border-color: var(--primary); box-shadow: 0 4px 12px rgba(200, 169, 110, 0.3); }
-        .time-slot.disabled { opacity: 0.4; cursor: not-allowed; background: #eaeaea; color: #999; text-decoration: line-through; }
+        .time-slot.selected { background: var(--primary); color: var(--bg-dark); border-color: var(--primary); }
+        .time-slot.disabled { opacity: 0.4; cursor: not-allowed; background: #eaeaea; text-decoration: line-through; }
         .lead-form input, .lead-form select { width: 100%; padding: 14px; margin-bottom: 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 14px; font-family: inherit; background: var(--bg-light); }
-        .lead-form input:focus, .lead-form select:focus { border-color: var(--bg-dark); background: #fff; }
 
         /* Profile View */
         #profileView { background: var(--bg-light); min-height: 100%; padding-bottom: 100px; }
@@ -147,12 +155,38 @@
         .award-row { display: flex; justify-content: space-around; padding: 16px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 16px; }
         .award-item { text-align: center; font-size: 10px; font-weight: 700; color: var(--bg-dark); width: 30%; }
 
-        /* Detail Overlay */
+        .profile-feed-section { margin-top: 20px; padding: 24px; background: var(--bg-light); border-top: 1px solid var(--border-color); }
+        .feed-tabs { display: flex; gap: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); }
+        .feed-tab { background: none; border: none; font-size: 15px; font-weight: 700; color: var(--text-muted); cursor: pointer; padding-bottom: 10px; position: relative; }
+        .feed-tab.active { color: var(--bg-dark); }
+        .feed-tab.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 3px; background: var(--primary); border-radius: 3px 3px 0 0; }
+        
+        .insight-item-card { background: #fff; padding: 20px; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid var(--border-color); }
+        .insight-item-card h4 { margin: 8px 0; font-family: 'Playfair Display', serif; color: var(--bg-dark); font-size: 17px; }
+        .insight-item-card p { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin: 0 0 12px; }
+        .badge-news { font-size: 10px; background: var(--primary); color: #fff; padding: 4px 8px; border-radius: 4px; font-weight: 700; letter-spacing: 0.5px; }
+        .insight-item-card small { font-size: 11px; color: #aaa; font-weight: 600; }
+
+        /* Detail Overlay & Bottom Nav */
+        .view-section { display: none; animation: fadeIn 0.3s; }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .section { padding: 24px 0 10px 20px; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; padding-right: 20px; margin-bottom: 16px; }
+        .section-header h2 { font-family: 'Playfair Display', serif; font-size: 20px; margin: 0; color: var(--bg-dark); }
+        
         #detailView { background: #fff; position: fixed; top: 0; left: 0; right: 0; margin: 0 auto; width: 100%; max-width: var(--max-width); height: 100vh; overflow-y: auto; z-index: 80; display: none; padding-bottom: 180px; }
         .detail-header { position: sticky; top: 0; z-index: 85; background: var(--bg-dark); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .back-btn { display: flex; align-items: center; font-weight: 600; font-size: 14px; color: var(--primary); cursor: pointer; border: none; background: transparent; }
-        .project-hero { position: relative; height: 320px; background: #eee; }
-        .project-hero img { width: 100%; height: 100%; object-fit: cover; }
+        .project-hero { position: relative; height: 320px; background: #eee; overflow: hidden; }
+        .project-hero img { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease; }
+        
+        /* NEW: Detail View Slider Arrows */
+        .detail-slider-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.4); color: #fff; border: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 16px; z-index: 10; display: flex; justify-content: center; align-items: center; transition: 0.2s; }
+        .detail-slider-btn:hover { background: rgba(0,0,0,0.7); }
+        .detail-slider-btn.prev { left: 16px; }
+        .detail-slider-btn.next { right: 16px; }
+
         .detail-section { padding: 24px; border-bottom: 1px solid var(--border-color); background: #fff; }
         .detail-title { font-family: 'Playfair Display', serif; font-size: 24px; color: var(--bg-dark); margin: 0 0 8px; }
         .detail-location { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
@@ -166,19 +200,16 @@
         .media-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
         .floorplan-img { border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
         .floorplan-img img { width: 100%; }
-        
         .calc-box { background: var(--bg-light); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); }
         .calc-row { margin-bottom: 16px; }
         .calc-row label { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--bg-dark); }
         .calc-row input[type="range"] { width: 100%; accent-color: var(--primary); height: 4px; border-radius: 4px; appearance: none; background: #ddd; outline: none; }
         .calc-result { font-size: 28px; font-weight: 700; color: var(--primary); text-align: center; margin-top: 10px; }
-        
         .detail-action-bar { position: fixed; bottom: 85px; left: 0; right: 0; margin: 0 auto; width: 100%; max-width: var(--max-width); background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px); padding: 12px 20px; display: flex; gap: 12px; z-index: 85; border-top: 1px solid var(--border-color); box-shadow: 0 -4px 20px rgba(0,0,0,0.08); }
         .detail-action-bar button { flex: 1; padding: 14px; border-radius: 12px; font-weight: 700; border: none; font-size: 15px; cursor: pointer; }
         .btn-call { background: var(--bg-light); border: 1px solid var(--bg-dark); color: var(--bg-dark); }
         .btn-whatsapp { background: var(--bg-dark); color: var(--primary); }
 
-        /* Bottom Nav */
         .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; margin: 0 auto; width: 100%; max-width: var(--max-width); background: #fff; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -5px 20px rgba(0,0,0,0.08); border-top: 1px solid #f0f0f0; z-index: 100; }
         .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted); font-size: 10px; font-weight: 600; text-transform: uppercase; cursor: pointer; transition: 0.25s; }
         .nav-item.active { color: var(--primary); }
@@ -192,7 +223,6 @@
     <div id="toast-container"></div>
 
     <div class="app-container">
-        
         <header id="mainHeader">
             <div class="brand">KAREEN.</div>
             <div class="agent-profile" onclick="switchNav('profile', document.getElementById('nav-profile'))">
@@ -244,8 +274,9 @@
                         </div>
                     </div>
                 </div>
+                
                 <div id="mapView" style="display:none;">
-                    <iframe src="https://maps.google.com/maps?q=Kuala+Lumpur,Malaysia&t=&z=11&ie=UTF8&iwloc=&output=embed" width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+                    <div id="map"></div>
                 </div>
             </div>
 
@@ -259,7 +290,7 @@
 
             <div id="scheduleView" class="view-section">
                 <h2 style="font-family: 'Playfair Display', serif; color: var(--bg-dark); margin-top: 0;">Schedule a Viewing</h2>
-                <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 24px;">Synchronize with Kareen's real-time 30-day availability calendar.</p>
+                <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 24px;">Synchronize with Kareen's real-time availability calendar.</p>
                 <label id="calendarMonthLabel" style="font-size: 13px; font-weight: 700; color: var(--bg-dark); margin-bottom: 12px; display: block;">Select Date</label>
                 <div class="date-scroller" id="dateScroller"></div>
                 
@@ -301,8 +332,32 @@
                         <div class="award-item"><br>Property Excellence<br>Award 2023</div>
                     </div>
                     <h3 style="font-family: 'Playfair Display', serif; color: var(--bg-dark); margin-bottom: 10px;">Executive Portfolio</h3>
-                    <p style="font-size: 14px; line-height: 1.6; color: var(--text-muted); margin-bottom: 24px;">Specializing in premium tier Kuala Lumpur developments, international portfolio diversification strategies, MM2H structure executions, and bespoke high-density corporate consultation assets.</p>
+                    <p style="font-size: 14px; line-height: 1.6; color: var(--text-muted); margin-bottom: 10px;">Specializing in premium tier Kuala Lumpur developments, international portfolio diversification strategies, MM2H structure executions, and bespoke high-density corporate consultation assets.</p>
                 </div>
+
+                <div class="profile-feed-section">
+                    <div class="feed-tabs">
+                        <button class="feed-tab active" onclick="switchFeed('insights', this)">📊 Market Insights</button>
+                        <button class="feed-tab" onclick="switchFeed('reviews', this)">💬 Client Reviews</button>
+                    </div>
+                    
+                    <div id="feedContent" class="feed-content-wrapper">
+                        <div class="insight-item-card">
+                            <span class="badge-news">MARKET REPORT</span>
+                            <h4>Mont Kiara 2026 租金回报率再度领跑全马</h4>
+                            <p>随着外籍高管的持续流入，高品质的3房户型在过去两个季度租金上涨了8%。目前投资 Miranda Hill 是截流高净值租客的绝佳时机...</p>
+                            <small>Updated: 2 days ago</small>
+                        </div>
+                        
+                        <div class="insight-item-card">
+                            <span class="badge-news" style="background: var(--bg-dark);">INFRASTRUCTURE</span>
+                            <h4>MRT 3 站点规划对周边高端独栋洋房的长期价值分析</h4>
+                            <p>最新公布的路线图显示，几个核心地下站点将有效打通东西部核心资产走廊。早期入场的高端项目将获得至少 15% 的溢价空间...</p>
+                            <small>Updated: 1 week ago</small>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -312,10 +367,14 @@
                 <div style="font-family: 'Playfair Display', serif; font-weight: 700; letter-spacing: 1px; color: var(--primary);">ASSET DATA</div>
                 <div style="width: 50px;"></div>
             </div>
+            
             <div class="project-hero">
                 <div class="tag" style="top: 16px; left: 16px;" id="detail-tag">Details</div>
-                <img src="" alt="Property Data Image" id="detail-img" onerror="this.src='https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=800&auto=format&fit=crop'">
+                <button class="detail-slider-btn prev" onclick="changeDetailImage(-1)">❮</button>
+                <img src="" alt="Property Data Image" id="detail-img" data-images="" data-current="0" onerror="this.src='https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=800&auto=format&fit=crop'">
+                <button class="detail-slider-btn next" onclick="changeDetailImage(1)">❯</button>
             </div>
+            
             <div class="detail-section">
                 <h1 class="detail-title" id="detail-title">Project Title</h1>
                 <div class="detail-location" id="detail-location">Location</div>
@@ -443,8 +502,11 @@
         let compareListIds = [];
         let savedListIds = [];
         let currentBookingDate = "";
+        
+        // Mapbox Globals
+        let mapboxMap = null;
+        let mapMarkers = [];
 
-        // Toast 通知引擎
         function showToast(msg) {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -468,12 +530,148 @@
             } catch (err) {
                 console.warn("Supabase fetch failed.");
             } finally {
+                initMapbox(); // 初始化地图引擎
                 applyAllFilters();
                 generateCalendar();
             }
         }
 
-        // 2. SEARCH, FILTER & SAVE ENGINE
+        // =========================================================
+        // MAPBOX ENGINE 初始化与数据同步
+        // =========================================================
+        function initMapbox() {
+            mapboxgl.accessToken = 'pk.eyJ1Ijoia3Jpc2xva2UiLCJhIjoiY21xMTM0NXlwMDE0MTJxcXdqbTFhNmxuaSJ9.sFCONvNwEyxslEcaD23qBA';
+            mapboxMap = new mapboxgl.Map({
+                container: 'map', 
+                style: 'mapbox://styles/mapbox/light-v11', // 素雅底图
+                center: [101.7185, 3.1420], // 默认 KL 中心
+                zoom: 11,
+                pitch: 45,
+                bearing: -17.6
+            });
+            mapboxMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        }
+
+        // 生成稳定的伪随机经纬度（如果你数据库里没有 lng/lat，用这个模拟展示，不会乱跳）
+        function getSeededRandom(seedStr) {
+            let h = 0;
+            for(let i=0; i<seedStr.length; i++) { h = Math.imul(31, h) + seedStr.charCodeAt(i) | 0; }
+            return function() { h = Math.imul(741103597, h); return ((h >>> 0) / 4294967296); };
+        }
+
+        function updateMapData(records) {
+            if (!mapboxMap) return;
+            
+            // 清除旧的 Marker
+            mapMarkers.forEach(m => m.remove());
+            mapMarkers = [];
+
+            records.forEach(asset => {
+                // 如果数据库没有真实的 lng/lat，我们根据房源名字生成固定的模拟坐标用于演示
+                let rnd = getSeededRandom(asset.id || asset.title);
+                let lng = asset.lng || (101.62 + rnd() * 0.15); 
+                let lat = asset.lat || (3.05 + rnd() * 0.15);
+
+                const el = document.createElement('div');
+                el.className = 'premium-marker';
+
+                const priceDisplay = asset.price ? `RM ${parseInt(asset.price).toLocaleString()}` : 'Price TBA';
+                const typeDisplay = asset.property_type || 'Residential';
+
+                const popupHTML = `
+                    <div class="popup-title">${asset.title}</div>
+                    <div class="popup-price">${priceDisplay}</div>
+                    <div class="popup-desc">${asset.location || 'Kuala Lumpur'} | ${typeDisplay}</div>
+                    <div class="popup-btn" onclick="openDetailView('${asset.id}')">View Full Details</div>
+                `;
+
+                const popup = new mapboxgl.Popup({ offset: 25, closeOnClick: true }).setHTML(popupHTML);
+
+                const marker = new mapboxgl.Marker(el)
+                    .setLngLat([lng, lat])
+                    .setPopup(popup)
+                    .addTo(mapboxMap);
+                
+                mapMarkers.push(marker);
+            });
+        }
+
+        // =========================================================
+        // 图片滑动逻辑 (列表卡片 & 详情页共用)
+        // =========================================================
+        function changeCardImage(event, btn, direction) {
+            event.stopPropagation();
+            const container = btn.parentElement;
+            const imgEl = container.querySelector('.main-card-img');
+            _slideImage(imgEl, direction);
+        }
+
+        // [NEW] 详情页内部的图片滑动
+        function changeDetailImage(direction) {
+            const imgEl = document.getElementById('detail-img');
+            _slideImage(imgEl, direction);
+        }
+
+        // 核心滑动函数
+        function _slideImage(imgEl, direction) {
+            const imgData = imgEl.getAttribute('data-images');
+            if(!imgData) return;
+            
+            const imgList = imgData.split(',');
+            if(imgList.length <= 1) return; // 只有一张图就不滑了
+
+            let currentIndex = parseInt(imgEl.getAttribute('data-current') || 0);
+            
+            currentIndex += direction;
+            if (currentIndex >= imgList.length) currentIndex = 0; 
+            if (currentIndex < 0) currentIndex = imgList.length - 1;
+            
+            imgEl.style.opacity = 0; // 淡出
+            setTimeout(() => {
+                imgEl.src = imgList[currentIndex].trim();
+                imgEl.setAttribute('data-current', currentIndex);
+                imgEl.style.opacity = 1; // 淡入
+            }, 150);
+        }
+
+        function switchFeed(type, btn) {
+            document.querySelectorAll('.feed-tab').forEach(t => t.classList.remove('active'));
+            if(btn) btn.classList.add('active');
+            
+            const content = document.getElementById('feedContent');
+            if(type === 'insights') {
+                content.innerHTML = `
+                    <div class="insight-item-card">
+                        <span class="badge-news">MARKET REPORT</span>
+                        <h4>Mont Kiara 2026 租金回报率再度领跑全马</h4>
+                        <p>随着外籍高管的持续流入，高品质的3房户型在过去两个季度租金上涨了8%。目前投资 Miranda Hill 是截流高净值租客的绝佳时机...</p>
+                        <small>Updated: 2 days ago</small>
+                    </div>
+                    <div class="insight-item-card">
+                        <span class="badge-news" style="background: var(--bg-dark);">INFRASTRUCTURE</span>
+                        <h4>MRT 3 站点规划对周边高端独栋洋房的长期价值分析</h4>
+                        <p>最新公布的路线图显示，几个核心地下站点将有效打通东西部核心资产走廊。早期入场的高端项目将获得至少 15% 的溢价空间...</p>
+                        <small>Updated: 1 week ago</small>
+                    </div>
+                `;
+            } else {
+                content.innerHTML = `
+                    <div class="insight-item-card">
+                        <span class="badge-news" style="background: var(--success);">5-STAR REVIEW</span>
+                        <h4>"Kareen is incredibly professional & insightful!"</h4>
+                        <p>She helped us secure a below-market-value unit at Mont Kiara. Her insights on the MRT3 alignment and local tenant demographics were spot on. Highly recommend her portfolio management services.</p>
+                        <small>From: Mr. Tan (Overseas Investor) - 3 days ago</small>
+                    </div>
+                    <div class="insight-item-card">
+                        <span class="badge-news" style="background: var(--success);">5-STAR REVIEW</span>
+                        <h4>"Flawless execution for MM2H"</h4>
+                        <p>Found my dream retirement home through Kareen. The VR viewing feature saved me multiple flights to KL. The entire transaction was smooth and fully transparent.</p>
+                        <small>From: Sarah W. (Expat) - 2 weeks ago</small>
+                    </div>
+                `;
+            }
+        }
+
         function applyAllFilters() {
             const textQuery = document.getElementById('searchInput').value.toLowerCase().trim();
             const maxBudget = parseInt(document.getElementById('priceSlider').value);
@@ -495,15 +693,15 @@
 
             renderActiveCardsToDOM(processedResults);
             renderSavedCardsToDOM();
+            
+            // [NEW] 每次筛选后，同步刷新地图上的大头针！
+            updateMapData(processedResults);
         }
 
         function toggleSave(event, id) {
             event.stopPropagation();
-            if (savedListIds.includes(id)) {
-                savedListIds = savedListIds.filter(v => v !== id);
-            } else {
-                savedListIds.push(id);
-            }
+            if (savedListIds.includes(id)) { savedListIds = savedListIds.filter(v => v !== id); } 
+            else { savedListIds.push(id); }
             applyAllFilters();
             updateScheduleDropdown();
         }
@@ -528,7 +726,9 @@
                 const compareIcon = compareListIds.includes(asset.id) ? 'Compared' : '+ Compare';
                 const isSaved = savedListIds.includes(asset.id) ? 'saved' : '';
                 const saveIcon = savedListIds.includes(asset.id) ? 'Saved' : 'Save';
+                
                 const imgDisplay = asset.image_url || 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=600&auto=format&fit=crop';
+                const dummyGallery = `${imgDisplay},https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=600&auto=format&fit=crop,https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=600&auto=format&fit=crop`;
 
                 let cardHTML = `
                     <div class="card" onclick="openDetailView('${asset.id}')">
@@ -536,7 +736,10 @@
                             <span class="tag" style="${tagStyle}">${status}</span>
                             <div class="save-badge ${isSaved}" onclick="toggleSave(event, '${asset.id}')">${saveIcon}</div>
                             <div class="compare-badge ${isCompared}" onclick="toggleCompare(event, '${asset.id}')">${compareIcon}</div>
-                            <img src="${imgDisplay}" alt="${asset.title}" onerror="this.src='https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=600&auto=format&fit=crop'">
+                            
+                            <button class="slider-arrow prev-arr" onclick="changeCardImage(event, this, -1)">❮</button>
+                            <img class="main-card-img" src="${imgDisplay}" data-images="${dummyGallery}" data-current="0" alt="${asset.title}">
+                            <button class="slider-arrow next-arr" onclick="changeCardImage(event, this, 1)">❯</button>
                         </div>
                         <div class="card-body">
                             <div class="card-area">${asset.location || 'Kuala Lumpur'}</div>
@@ -568,6 +771,7 @@
                 const isCompared = compareListIds.includes(asset.id) ? 'selected' : '';
                 const compareIcon = compareListIds.includes(asset.id) ? 'Compared' : '+ Compare';
                 const imgDisplay = asset.image_url || 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=600&auto=format&fit=crop';
+                const dummyGallery = `${imgDisplay},https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=600&auto=format&fit=crop,https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=600&auto=format&fit=crop`;
 
                 savedContainer.innerHTML += `
                     <div class="card" onclick="openDetailView('${asset.id}')">
@@ -575,7 +779,10 @@
                             <span class="tag" style="background:var(--success);color:#fff;">Saved</span>
                             <div class="save-badge saved" onclick="toggleSave(event, '${asset.id}')">Saved</div>
                             <div class="compare-badge ${isCompared}" onclick="toggleCompare(event, '${asset.id}')">${compareIcon}</div>
-                            <img src="${imgDisplay}" alt="${asset.title}" onerror="this.src='https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=600&auto=format&fit=crop'">
+                            
+                            <button class="slider-arrow prev-arr" onclick="changeCardImage(event, this, -1)">❮</button>
+                            <img class="main-card-img" src="${imgDisplay}" data-images="${dummyGallery}" data-current="0" alt="${asset.title}">
+                            <button class="slider-arrow next-arr" onclick="changeCardImage(event, this, 1)">❯</button>
                         </div>
                         <div class="card-body">
                             <div class="card-area">${asset.location || 'Kuala Lumpur'}</div>
@@ -620,12 +827,10 @@
             closeFilter();
         }
 
-        // 3. DYNAMIC COMPARE MATRIX
         function toggleCompare(event, id) {
             event.stopPropagation();
-            if (compareListIds.includes(id)) {
-                compareListIds = compareListIds.filter(v => v !== id);
-            } else {
+            if (compareListIds.includes(id)) { compareListIds = compareListIds.filter(v => v !== id); } 
+            else {
                 if (compareListIds.length >= 3) { showToast("You can only compare up to 3 properties."); return; }
                 compareListIds.push(id);
             }
@@ -668,7 +873,6 @@
             container.innerHTML = html;
         }
 
-        // 4. SUPABASE SCHEDULE ENGINE
         function generateCalendar() {
             const scroller = document.getElementById('dateScroller');
             const label = document.getElementById('calendarMonthLabel');
@@ -733,7 +937,7 @@
                         }
                     });
                 }
-            } catch (err) { console.warn("Supabase fetch appointments failed."); }
+            } catch (err) {}
         }
 
         function selectTimeSlot(slot) {
@@ -756,7 +960,6 @@
             const timeStr = activeSlot.getAttribute('data-time');
 
             try {
-                // 👇 【修改在这里】把 property_name 一并推送给后台 👇
                 const { error } = await supabaseClient.from('appointments').insert([
                     {
                         booking_date: currentBookingDate, 
@@ -783,7 +986,6 @@
             }
         }
 
-        // 5. VIEW ROUTING & SPA LOGIC
         function switchNav(viewId, clickedItem) {
             if(clickedItem) {
                 document.querySelectorAll('.bottom-nav .nav-item').forEach(el => el.classList.remove('active'));
@@ -805,7 +1007,15 @@
                 document.getElementById('detail-title').innerText = t.title;
                 document.getElementById('detail-location').innerText = t.location;
                 document.getElementById('detail-price').innerText = `From RM ${parseInt(t.price).toLocaleString()}`;
-                document.getElementById('detail-img').src = t.image_url || 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=800&auto=format&fit=crop';
+                
+                // [NEW] 注入详情页图片画廊数据
+                const imgDisplay = t.image_url || 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=800&auto=format&fit=crop';
+                const dummyGallery = `${imgDisplay},https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=800&auto=format&fit=crop,https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=800&auto=format&fit=crop`;
+                
+                const detailImg = document.getElementById('detail-img');
+                detailImg.src = imgDisplay;
+                detailImg.setAttribute('data-images', dummyGallery);
+                detailImg.setAttribute('data-current', '0');
                 
                 document.getElementById('detail-type').innerText = t.property_type || 'Residential';
                 document.getElementById('detail-beds').innerText = t.bedrooms || '2 - 3 Beds';
@@ -839,9 +1049,13 @@
             btn.classList.add('active');
             document.getElementById('listView').style.display = (type === 'map') ? 'none' : 'block';
             document.getElementById('mapView').style.display = (type === 'map') ? 'block' : 'none';
+
+            // [NEW] 解决 Mapbox 在隐藏的 div 中初始化时宽高为 0 的问题
+            if (type === 'map' && mapboxMap) {
+                setTimeout(() => mapboxMap.resize(), 100);
+            }
         }
 
-        // 6. MORTGAGE CALCULATOR
         function calculateMortgage() {
             const price = parseFloat(document.getElementById('sliderPrice').value);
             const tenure = parseFloat(document.getElementById('sliderTenure').value);
@@ -862,7 +1076,6 @@
             document.getElementById('valMonthly').innerText = Math.round(payment).toLocaleString();
         }
 
-        // Initialize Data
         executeCloudDataSync();
     </script>
 </body>
