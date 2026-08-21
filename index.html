@@ -110,6 +110,19 @@
         #map { position: absolute; top: 0; bottom: 0; width: 100%; height: 100%; }
         .premium-marker { background-color: #C8A96E; width: 20px; height: 20px; border-radius: 50%; border: 3px solid #0B1D3A; box-shadow: 0 4px 8px rgba(0,0,0,0.3); cursor: pointer; transition: transform 0.2s ease; }
         .premium-marker:hover { transform: scale(1.3); z-index: 10; }
+        /* 概略位置用空心钉，跟精确位置一眼分得出来 */
+        .premium-marker.approx { background-color: transparent; border: 3px dashed #C8A96E;
+                                 box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+        .map-note { position: absolute; left: 10px; bottom: 10px; right: 10px; z-index: 5;
+                    background: rgba(11, 29, 58, 0.88); color: #fff; font-size: 11px; line-height: 1.5;
+                    padding: 9px 12px; border-radius: 10px; backdrop-filter: blur(6px);
+                    -webkit-backdrop-filter: blur(6px); pointer-events: none; }
+        .map-note b { color: #C8A96E; }
+        .map-note .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+                         background: #C8A96E; border: 2px solid #0B1D3A; margin-right: 4px;
+                         vertical-align: -1px; }
+        .map-note .dot.approx { background: transparent; border: 2px dashed #C8A96E; }
+        .popup-approx { font-size: 10px; color: #C8A96E; font-style: italic; margin-bottom: 8px; }
         .mapboxgl-popup-content { background-color: #0B1D3A; color: #F8F9FA; border-radius: 8px; padding: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); border: 1px solid #C8A96E; min-width: 200px; }
         .mapboxgl-popup-close-button { color: #C8A96E; font-size: 16px; right: 8px; top: 5px; }
         .popup-title { font-weight: bold; font-size: 16px; margin-bottom: 5px; color: #C8A96E;}
@@ -345,6 +358,7 @@
                 
                 <div id="mapView" style="display:none;">
                     <div id="map"></div>
+                    <div class="map-note" id="mapNote"></div>
                 </div>
             </div>
 
@@ -623,46 +637,123 @@
             mapboxMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
         }
 
-        function getSeededRandom(seedStr) {
-            let h = 0;
-            for(let i=0; i<seedStr.length; i++) { h = Math.imul(31, h) + seedStr.charCodeAt(i) | 0; }
-            return function() { h = Math.imul(741103597, h); return ((h >>> 0) / 4294967296); };
+        // 之前这里有个 getSeededRandom()，在没有座标时凭房源 id 编一个假位置出来。
+        // 因为带 seed，所以每次刷新都钉在同一个错的地方，看起来稳定、反而更像真的。
+        // 房产网站上这是不能接受的：使用者会拿地图上的位置做判断。已整个移除。
+
+        const MAPBOX_TOKEN = 'pk.eyJ1Ijoia3Jpc2xva2UiLCJhIjoiY21xMTQ4eXBuMDcxYTJyczdib3c0cWkyZSJ9._8hUTQ1gWo9_2LkqIkHqjw';
+
+        // 同一个地名不重复打 API。sessionStorage 存着，换页也还在。
+        const geocodeCache = {};
+
+        async function geocodeLocation(text) {
+            const key = String(text || '').trim().toLowerCase();
+            if (!key) return null;
+            if (key in geocodeCache) return geocodeCache[key];
+
+            try {
+                const cached = sessionStorage.getItem('geo:' + key);
+                if (cached) { geocodeCache[key] = JSON.parse(cached); return geocodeCache[key]; }
+            } catch (e) { /* 无痕模式读不到，忽略 */ }
+
+            // 先查页面自带的地名表，命中就省一次网络往返
+            for (const name in regionMap) {
+                if (key.includes(name)) {
+                    const hit = { lat: regionMap[name].lat, lng: regionMap[name].lng, label: name };
+                    geocodeCache[key] = hit;
+                    return hit;
+                }
+            }
+
+            try {
+                const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/'
+                    + encodeURIComponent(text) + '.json?country=my&limit=1&access_token=' + MAPBOX_TOKEN;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('geocode ' + res.status);
+                const data = await res.json();
+                const f = data.features && data.features[0];
+                const hit = f ? { lat: f.center[1], lng: f.center[0], label: f.place_name } : null;
+                geocodeCache[key] = hit;
+                try { sessionStorage.setItem('geo:' + key, JSON.stringify(hit)); } catch (e) {}
+                return hit;
+            } catch (err) {
+                console.warn('Geocoding failed for', text, err);
+                geocodeCache[key] = null;
+                return null;
+            }
         }
 
-        function updateMapData(records) {
+        async function updateMapData(records) {
             if (!mapboxMap) return;
             mapMarkers.forEach(m => m.remove());
             mapMarkers = [];
 
-            records.forEach(asset => {
-                let rnd = getSeededRandom(asset.id || asset.title);
-                let lng = asset.lng || (101.62 + rnd() * 0.15); 
-                let lat = asset.lat || (3.05 + rnd() * 0.15);
+            let exact = 0, approx = 0;
+            const unmapped = [];
+            const bounds = new mapboxgl.LngLatBounds();
+
+            for (const asset of records) {
+                let lat = parseFloat(asset.lat);
+                let lng = parseFloat(asset.lng);
+                let isApprox = false;
+
+                if (!isFinite(lat) || !isFinite(lng)) {
+                    // 没有座标就照地名找个大概位置 —— 但绝不假装它是精确的
+                    const hit = await geocodeLocation(asset.location);
+                    if (!hit) { unmapped.push(asset.title); continue; }
+                    lat = hit.lat; lng = hit.lng; isApprox = true;
+                }
+
+                isApprox ? approx++ : exact++;
 
                 const el = document.createElement('div');
-                el.className = 'premium-marker';
+                el.className = 'premium-marker' + (isApprox ? ' approx' : '');
 
-                const priceDisplay = asset.price ? `RM ${parseInt(asset.price).toLocaleString()}` : 'Price TBA';
-                const typeDisplay = asset.property_type || 'Residential';
-
+                const priceDisplay = asset.price ? 'RM ' + parseInt(asset.price).toLocaleString() : 'Price TBA';
                 const popupHTML = `
-                    <div class="popup-title">${asset.title}</div>
+                    <div class="popup-title">${esc(asset.title)}</div>
                     <div class="popup-price">${priceDisplay}</div>
-                    <div class="popup-desc">${asset.location || 'Kuala Lumpur'} | ${typeDisplay}</div>
+                    <div class="popup-desc">${esc(asset.location || '')} | ${esc(asset.property_type || 'Residential')}</div>
+                    ${isApprox ? '<div class="popup-approx">Approximate area &middot; exact address on request</div>' : ''}
                     <div class="popup-btn" onclick="openDetailView('${asset.id}')">View Full Details</div>
                 `;
 
-                const popup = new mapboxgl.Popup({ offset: 25, closeOnClick: true }).setHTML(popupHTML);
-
                 const marker = new mapboxgl.Marker(el)
                     .setLngLat([lng, lat])
-                    .setPopup(popup)
+                    .setPopup(new mapboxgl.Popup({ offset: 25, closeOnClick: true }).setHTML(popupHTML))
                     .addTo(mapboxMap);
-                
+
                 mapMarkers.push(marker);
-            });
+                bounds.extend([lng, lat]);
+            }
+
+            // 镜头对准实际有的图钉，而不是写死在吉隆坡市中心
+            if (mapMarkers.length === 1) {
+                mapboxMap.easeTo({ center: bounds.getCenter(), zoom: 14, duration: 800 });
+            } else if (mapMarkers.length > 1) {
+                mapboxMap.fitBounds(bounds, { padding: 70, maxZoom: 14, duration: 800 });
+            }
+
+            renderMapNote(exact, approx, unmapped);
         }
 
+        function renderMapNote(exact, approx, unmapped) {
+            const note = document.getElementById('mapNote');
+            if (!note) return;
+
+            if (!exact && !approx && !unmapped.length) { note.style.display = 'none'; return; }
+            note.style.display = 'block';
+
+            const parts = [];
+            if (exact) parts.push('<span class="dot"></span><b>' + exact + '</b> exact');
+            if (approx) parts.push('<span class="dot approx"></span><b>' + approx + '</b> approximate area');
+
+            let html = parts.join(' &nbsp; ');
+            if (unmapped.length) {
+                html += (html ? '<br>' : '') + 'Not on map: ' + unmapped.map(esc).join(', ');
+            }
+            note.innerHTML = html;
+        }
         function changeCardImage(event, btn, direction) {
             event.stopPropagation();
             const container = btn.parentElement;

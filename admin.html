@@ -426,6 +426,15 @@
                         </div>
 
                         <div class="form-group full">
+                            <button type="button" class="btn btn-outline" id="geoBtn" onclick="lookupCoordinates()" style="align-self: flex-start; min-height: 44px;">
+                                📍 Look up coordinates from Location
+                            </button>
+                            <small id="geoResult" style="color: var(--text-muted); font-size: 12px; min-height: 16px;">
+                                Without coordinates the public map can only show an approximate area for this listing.
+                            </small>
+                        </div>
+
+                        <div class="form-group full">
                             <label>Cover Image URL (Separate multiple images with commas ',')</label>
                             <input type="url" id="propImage" placeholder="e.g. img1.jpg, img2.jpg" oninput="document.getElementById('imgPreview').src = this.value.split(',')[0].trim(); document.getElementById('imgPreview').style.display = 'block';">
                             <img id="imgPreview" src="" style="margin-top: 10px; max-width: 100%; height: 200px; object-fit: cover; border-radius: 8px; display: none;" onerror="this.style.display='none'" onload="this.style.display='block'">
@@ -1121,6 +1130,63 @@
                 grip.addEventListener('pointercancel', onUp);
             });
         })();
+
+        // 跟客户端同一把 Mapbox public token（pk. 开头的本来就是设计给前端用的）
+        const MAPBOX_TOKEN = 'pk.eyJ1Ijoia3Jpc2xva2UiLCJhIjoiY21xMTQ4eXBuMDcxYTJyczdib3c0cWkyZSJ9._8hUTQ1gWo9_2LkqIkHqjw';
+
+        async function lookupCoordinates() {
+            const location = document.getElementById('propLocation').value.trim();
+            const title = document.getElementById('propTitle').value.trim();
+            const btn = document.getElementById('geoBtn');
+            const out = document.getElementById('geoResult');
+
+            if (!location) {
+                showToast('Fill in Location first.', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = 'Searching...';
+            out.style.color = 'var(--text-muted)';
+            out.innerText = '';
+
+            // 项目名 + 地点通常比单给地点准；查不到再退回只用地点
+            const queries = title ? [title + ', ' + location, location] : [location];
+
+            try {
+                for (const q of queries) {
+                    const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/'
+                        + encodeURIComponent(q) + '.json?country=my&limit=1&access_token=' + MAPBOX_TOKEN;
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error('Mapbox returned ' + res.status);
+                    const data = await res.json();
+                    const f = data.features && data.features[0];
+                    if (!f) continue;
+
+                    document.getElementById('propLng').value = f.center[0].toFixed(6);
+                    document.getElementById('propLat').value = f.center[1].toFixed(6);
+
+                    // 一定要让人看到它比对到什么。Mapbox 常常只回到区/市中心，
+                    // 那对楼盘来说差得远 —— 得由使用者判断够不够准。
+                    const precise = (f.place_type || []).some(t => ['address', 'poi'].includes(t));
+                    out.style.color = precise ? 'var(--success-text)' : 'var(--pending-text)';
+                    out.innerText = (precise ? 'Matched: ' : 'Only matched the area: ')
+                        + f.place_name
+                        + (precise ? '' : ' — drag-check on Google Maps and adjust if this is not the actual site.');
+                    showToast('Coordinates filled in', 'success');
+                    return;
+                }
+                out.style.color = 'var(--danger-text)';
+                out.innerText = 'No match. Enter the coordinates manually from Google Maps.';
+            } catch (err) {
+                console.error('Geocoding failed:', err);
+                out.style.color = 'var(--danger-text)';
+                out.innerText = 'Lookup failed. Enter the coordinates manually.';
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '📍 Look up coordinates from Location';
+            }
+        }
 
         function escapeHtml(str) { return str ? String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") : ""; }
         function formatPhoneForWhatsApp(phone) { 
