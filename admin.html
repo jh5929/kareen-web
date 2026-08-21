@@ -6,101 +6,233 @@
     <title>Kareen's CRM | Secure Admin Dashboard</title>
     <link href="https://fonts.googleapis.com/css?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* =====================================================================
+           Kareen CRM — iOS 风格外观
+           ---------------------------------------------------------------------
+           三个原则：
+           1. 玻璃：半透明 + backdrop-filter，让层次靠模糊而不是靠阴影
+           2. 弹簧：所有位移用带回弹的 easing，点击有 scale 反馈
+           3. 拇指：手机上任何可点的东西不小于 44px，重要操作放在够得到的地方
+           ================================================================== */
+
         :root {
-            --bg-main: #f4f6f9; --panel-bg: #ffffff;
+            --bg-main: #f2f2f7;          /* iOS 系统灰底 */
+            --panel-bg: #ffffff;
             --navy: #0B1D3A; --gold: #C8A96E;
-            --text-dark: #222222; --text-muted: #777777;
-            --border: #e2e8f0;
+            --text-dark: #1c1c1e; --text-muted: #8e8e93;
+            --border: rgba(60, 60, 67, 0.12);
             --success-bg: #e6f4ea; --success-text: #137333;
             --pending-bg: #feeed8; --pending-text: #b06000;
             --danger-bg: #fce8e6; --danger-text: #c5221f;
+            --ios-red: #ff3b30;
+
+            /* 玻璃 */
+            --glass: rgba(255, 255, 255, 0.72);
+            --glass-strong: rgba(255, 255, 255, 0.86);
+            --glass-dark: rgba(11, 29, 58, 0.72);
+            --blur: saturate(180%) blur(20px);
+
+            /* 弹簧曲线 —— spring 会冲过头再回弹，ease-out 是 iOS 的减速手感 */
+            --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+            --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+            --r-lg: 20px; --r-md: 14px; --r-sm: 10px;
+            --safe-b: env(safe-area-inset-bottom, 0px);
         }
-        * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background-color: var(--bg-main); color: var(--text-dark); }
-        
-        #toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
-        .toast { background: #fff; padding: 14px 24px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); font-size: 14px; font-weight: 600; transform: translateX(150%); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 10px; border-left: 4px solid var(--navy); }
-        .toast.show { transform: translateX(0); }
-        .toast.success { border-color: var(--success-text); }
-        .toast.error { border-color: var(--danger-text); }
 
-        #login-view { display: flex; height: 100vh; justify-content: center; align-items: center; background: var(--navy); }
-        .login-card { background: #fff; padding: 40px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
-        .login-card h2 { margin: 0 0 24px; color: var(--navy); text-align: center; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-        .dashboard-container { display: none; min-height: 100vh; }
-        .sidebar { width: 260px; background-color: var(--navy); color: #fff; padding: 30px 20px; display: flex; flex-direction: column; gap: 40px; position: fixed; height: 100vh; z-index: 100; transition: transform 0.3s ease; }
+        body {
+            margin: 0; padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', system-ui, sans-serif;
+            background-color: var(--bg-main); color: var(--text-dark);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 滚动容器统一给上 iOS 的橡皮筋惯性，并挡住滚到底后带动整页 */
+        .scroll-area { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+
+        /* 尊重「减少动态效果」的系统设定 —— 前庭敏感的人会晕 */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* ---------- Toast ---------- */
+        #toast-container { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 9999; display: flex; flex-direction: column; gap: 10px; width: calc(100% - 24px); max-width: 420px; pointer-events: none; }
+        .toast { background: var(--glass-strong); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); padding: 14px 20px; border-radius: var(--r-md); box-shadow: 0 8px 30px rgba(0,0,0,0.12); font-size: 14px; font-weight: 600; transform: translateY(-140%) scale(0.9); opacity: 0; transition: transform 0.5s var(--spring), opacity 0.3s ease; display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); }
+        .toast.show { transform: translateY(0) scale(1); opacity: 1; }
+        .toast.success { border-left: 4px solid var(--success-text); }
+        .toast.error { border-left: 4px solid var(--danger-text); }
+
+        /* ---------- 登入 ---------- */
+        #login-view { display: flex; min-height: 100svh; justify-content: center; align-items: center; background: var(--navy); padding: 24px; }
+        .login-card { background: var(--glass-strong); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); padding: 36px 28px; border-radius: var(--r-lg); width: 100%; max-width: 400px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); }
+        .login-card h2 { margin: 0 0 24px; color: var(--navy); text-align: center; letter-spacing: -0.3px; }
+
+        /* ---------- 骨架 ---------- */
+        .dashboard-container { display: none; min-height: 100svh; }
+        .sidebar { width: 260px; background: var(--glass-dark); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); color: #fff; padding: 30px 20px calc(30px + var(--safe-b)); display: flex; flex-direction: column; gap: 40px; position: fixed; height: 100svh; z-index: 100; transition: transform 0.55s var(--spring); border-right: 1px solid rgba(255,255,255,0.08); }
         .sidebar .logo { font-size: 22px; font-weight: 700; letter-spacing: 1px; color: var(--gold); }
-        .nav-menu { display: flex; flex-direction: column; gap: 10px; flex: 1; }
-        .nav-item { padding: 14px 16px; border-radius: 8px; font-weight: 500; color: #a0aec0; cursor: pointer; transition: 0.2s; }
-        .nav-item.active, .nav-item:hover { background-color: rgba(255,255,255,0.05); color: var(--gold); }
-        
-        .main-content { margin-left: 260px; flex: 1; padding: 40px; display: flex; flex-direction: column; gap: 30px; width: 100%; overflow-x: hidden; }
-        .view-section { display: none; }
-        .view-section.active { display: block; animation: fadeIn 0.3s ease; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        
-        .dashboard-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; flex-wrap: wrap; gap: 16px; }
-        .dashboard-header h1 { margin: 0; font-size: 28px; color: var(--navy); display: flex; align-items: center; gap: 12px; }
-        .hamburger { display: none; background: transparent; border: none; font-size: 24px; color: var(--navy); cursor: pointer; }
+        .nav-menu { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+        .nav-item { padding: 14px 16px; border-radius: var(--r-sm); font-weight: 500; color: #a0aec0; cursor: pointer; transition: background 0.25s var(--ease-out), color 0.25s var(--ease-out), transform 0.4s var(--spring); }
+        .nav-item.active, .nav-item:hover { background-color: rgba(255,255,255,0.08); color: var(--gold); }
+        .nav-item:active { transform: scale(0.97); }
 
-        .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-        .stat-card { background-color: var(--panel-bg); padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 1px solid var(--border); }
-        .stat-card label { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
-        .stat-card .value { font-size: 32px; font-weight: 700; color: var(--navy); margin-top: 8px; }
-        
-        .table-panel { background-color: var(--panel-bg); border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 1px solid var(--border); overflow-x: auto; }
-        .table-header-bar { padding: 20px 24px; background-color: #fff; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.35); backdrop-filter: blur(2px); z-index: 99; opacity: 0; pointer-events: none; transition: opacity 0.35s var(--ease-out); }
+        .scrim.show { opacity: 1; pointer-events: auto; }
+
+        /* 不能给 width: 100% —— 那会跟 margin-left 叠加成 260px + 100%，整页横向溢出 */
+        .main-content { margin-left: 260px; flex: 1; padding: 32px 40px calc(40px + var(--safe-b)); display: flex; flex-direction: column; gap: 24px; min-width: 0; overflow-x: hidden; }
+        .view-section { display: none; }
+        .view-section.active { display: block; animation: sectionIn 0.5s var(--ease-out); }
+        @keyframes sectionIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+        .dashboard-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 16px; }
+        .dashboard-header h1 { margin: 0; font-size: 26px; letter-spacing: -0.5px; color: var(--navy); display: flex; align-items: center; gap: 12px; }
+        /* 手机上唯一能叫出侧边栏的入口，触控区不得小于 44x44 */
+        .hamburger { display: none; background: transparent; border: none; font-size: 22px; color: var(--navy); cursor: pointer; min-width: 44px; min-height: 44px; padding: 8px; margin: -8px 0 -8px -8px; border-radius: var(--r-sm); transition: transform 0.4s var(--spring); }
+        .hamburger:active { transform: scale(0.88); }
+
+        /* ---------- 数据卡 ---------- */
+        .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .stat-card { background: var(--glass); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); padding: 20px; border-radius: var(--r-md); border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+        .stat-card label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+        .stat-card .value { font-size: 30px; font-weight: 700; color: var(--navy); margin-top: 6px; letter-spacing: -1px; }
+
+        /* ---------- 面板与表格（桌面） ---------- */
+        .table-panel { background: var(--panel-bg); border-radius: var(--r-lg); border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.04); overflow: hidden; }
+        .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+        .table-header-bar { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .table-header-bar h3 { margin: 0; color: var(--navy); font-size: 17px; letter-spacing: -0.3px; }
         .crm-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; min-width: 800px; }
-        .crm-table th { background-color: #f8fafc; padding: 16px 24px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); }
-        .crm-table td { padding: 18px 24px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-        
-        .status-badge { padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; }
+        .crm-table th { background-color: #f8fafc; padding: 14px 22px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border); font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; }
+        .crm-table td { padding: 16px 22px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        .crm-table tr:last-child td { border-bottom: none; }
+
+        /* ---------- 卡片清单（手机） ---------- */
+        .card-list { display: none; flex-direction: column; gap: 10px; padding: 12px; }
+        .data-card { background: #fff; border: 1px solid var(--border); border-radius: var(--r-md); padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); animation: cardIn 0.5s var(--spring) backwards; }
+        @keyframes cardIn { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
+        .data-card .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+        .data-card .card-title { font-size: 16px; font-weight: 700; color: var(--navy); letter-spacing: -0.2px; }
+        .data-card .card-sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+        .data-card .card-rows { display: flex; flex-direction: column; gap: 8px; }
+        .data-card .card-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; }
+        .data-card .card-row .k { color: var(--text-muted); font-size: 13px; flex-shrink: 0; }
+        .data-card .card-row .v { font-weight: 600; text-align: right; word-break: break-word; }
+        .data-card .card-actions { display: flex; gap: 8px; }
+        .data-card .card-actions .btn { flex: 1; min-height: 44px; }
+        .card-thumb { width: 52px; height: 52px; border-radius: var(--r-sm); object-fit: cover; flex-shrink: 0; background: #eee; }
+        .card-empty { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 14px; }
+
+        /* ---------- 徽章 / 按钮 ---------- */
+        .status-badge { padding: 5px 11px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-block; white-space: nowrap; }
         .status-badge.pending { background-color: var(--pending-bg); color: var(--pending-text); }
         .status-badge.completed { background-color: var(--success-bg); color: var(--success-text); }
-        
-        .btn { padding: 10px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s; border: none; }
+
+        .btn { padding: 11px 16px; border-radius: var(--r-sm); font-size: 14px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: transform 0.4s var(--spring), background 0.2s var(--ease-out), opacity 0.2s; }
+        .btn:active { transform: scale(0.94); }
         .btn-outline { border: 1px solid var(--border); background-color: #fff; color: var(--text-dark); }
         .btn-outline:hover { background-color: var(--navy); color: #fff; border-color: var(--navy); }
-        .btn-primary { background-color: var(--navy); color: var(--gold); width: 100%; }
+        .btn-primary { background-color: var(--navy); color: var(--gold); width: 100%; min-height: 46px; }
         .btn-primary.auto-width { width: auto; }
-        .btn-primary:hover { opacity: 0.9; }
-        .btn-danger { background-color: var(--danger-bg); color: var(--danger-text); border: 1px solid #f5c6cb; }
+        .btn-primary:hover { opacity: 0.92; }
+        .btn-danger { background-color: var(--danger-bg); color: var(--danger-text); border: 1px solid rgba(197,34,31,0.18); }
 
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px; backdrop-filter: blur(4px); }
+        /* ---------- Modal / 手机上的 bottom sheet ---------- */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; justify-content: center; align-items: center; z-index: 1000; padding: 20px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; transition: opacity 0.3s var(--ease-out); }
         .modal-overlay.active { display: flex; }
-        .modal-content { background: #fff; width: 100%; max-width: 800px; max-height: 90vh; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.2); }
-        .modal-header { padding: 20px 24px; background: var(--navy); color: var(--gold); display: flex; justify-content: space-between; align-items: center; }
-        .modal-body { padding: 24px; overflow-y: auto; flex: 1; }
-        .modal-footer { padding: 16px 24px; background: #f8fafc; display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border); }
-        
+        .modal-overlay.shown { opacity: 1; }
+        .modal-content { background: var(--glass-strong); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); width: 100%; max-width: 820px; max-height: 90svh; border-radius: var(--r-lg); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 30px 70px rgba(0,0,0,0.3); transform: translateY(24px) scale(0.96); opacity: 0; transition: transform 0.55s var(--spring), opacity 0.3s ease; }
+        .modal-overlay.shown .modal-content { transform: none; opacity: 1; }
+        .sheet-handle { display: none; width: 40px; height: 5px; border-radius: 3px; background: rgba(60,60,67,0.3); margin: 10px auto 2px; flex-shrink: 0; }
+        .modal-header { padding: 18px 22px; background: var(--navy); color: var(--gold); display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-shrink: 0; }
+        .modal-header h2 { letter-spacing: -0.3px; }
+        .modal-body { padding: 22px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+        .modal-footer { padding: 14px 22px calc(14px + var(--safe-b)); background: rgba(248,250,252,0.9); display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border); flex-shrink: 0; }
+
+        /* ---------- 表单 ---------- */
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
         .form-group { display: flex; flex-direction: column; gap: 6px; }
         .form-group.full { grid-column: span 2; }
-        .form-group label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
-        .form-group input, .form-group select, .form-group textarea { padding: 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: #f8fafc; font-family: inherit; }
-        .form-group input:focus, .form-group textarea:focus { border-color: var(--navy); outline: none; background: #fff; }
+        .form-group label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+        /* 字级不得小于 16px —— 更小的话 iOS Safari 一聚焦就会自动放大整页 */
+        .form-group input, .form-group select, .form-group textarea { padding: 12px; border: 1px solid var(--border); border-radius: var(--r-sm); font-size: 16px; background: #f8fafc; font-family: inherit; transition: border-color 0.2s, background 0.2s; }
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color: var(--navy); outline: none; background: #fff; }
         .form-group textarea { resize: vertical; }
 
-        .jsonb-container { border: 1px solid var(--border); border-radius: 8px; padding: 16px; background: #f8fafc; }
-        .dynamic-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 10px; margin-bottom: 10px; background: #fff; padding: 10px; border: 1px solid var(--border); border-radius: 6px; }
-        .dynamic-row input { padding: 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; width: 100%; }
+        .jsonb-container { border: 1px solid var(--border); border-radius: var(--r-md); padding: 16px; background: #f8fafc; }
+        .dynamic-row { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 10px; margin-bottom: 10px; background: #fff; padding: 10px; border: 1px solid var(--border); border-radius: var(--r-sm); }
+        .dynamic-row input { padding: 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; width: 100%; font-family: inherit; }
 
-        .confirm-card { max-width: 400px; padding: 24px; background: #fff; border-radius: 12px; text-align: center; }
+        .confirm-card { max-width: 400px; width: 100%; padding: 26px; background: var(--glass-strong); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); border-radius: var(--r-lg); text-align: center; box-shadow: 0 30px 70px rgba(0,0,0,0.3); transform: scale(0.9); opacity: 0; transition: transform 0.55s var(--spring), opacity 0.25s ease; }
+        .modal-overlay.shown .confirm-card { transform: none; opacity: 1; }
+        .confirm-card .btn { min-height: 46px; flex: 1; }
 
-        /* AI Module Style */
-        .ai-module { background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 24px; border: 1px solid var(--gold); border-left: 4px solid var(--gold); box-shadow: 0 4px 12px rgba(200, 169, 110, 0.1); }
+        /* ---------- AI 模块 ---------- */
+        .ai-module { background: #fff; padding: 18px; border-radius: var(--r-md); margin-bottom: 22px; border: 1px solid rgba(200,169,110,0.5); box-shadow: 0 4px 16px rgba(200, 169, 110, 0.12); }
+        .ai-module h4 { margin: 0 0 14px; color: var(--navy); font-size: 16px; letter-spacing: -0.2px; }
+        .ai-input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: var(--r-sm); font-family: inherit; font-size: 16px; background: #f8fafc; }
+        .ai-input:focus { outline: none; border-color: var(--gold); background: #fff; }
 
+        /* 上传区：整块都是 <label>，所以手机上随便点哪里都能唤出选档面板 */
+        .upload-zone { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 104px; padding: 18px; border: 2px dashed rgba(200,169,110,0.55); border-radius: var(--r-md); background: rgba(200,169,110,0.05); cursor: pointer; text-align: center; transition: transform 0.4s var(--spring), background 0.25s, border-color 0.25s; }
+        .upload-zone:active { transform: scale(0.985); background: rgba(200,169,110,0.12); }
+        .upload-zone.dragover { background: rgba(200,169,110,0.16); border-color: var(--gold); }
+        .upload-zone .uz-icon { font-size: 26px; line-height: 1; }
+        .upload-zone .uz-title { font-size: 15px; font-weight: 600; color: var(--navy); }
+        .upload-zone .uz-hint { font-size: 12px; color: var(--text-muted); }
+        .upload-zone input[type="file"] { display: none; }
+
+        .file-chip { display: none; align-items: center; gap: 10px; margin-top: 10px; padding: 12px 14px; border-radius: var(--r-sm); background: #f2f2f7; border: 1px solid var(--border); animation: cardIn 0.45s var(--spring); }
+        .file-chip.show { display: flex; }
+        .file-chip.over-limit { background: var(--danger-bg); border-color: rgba(197,34,31,0.25); }
+        .file-chip .fc-icon { font-size: 20px; flex-shrink: 0; }
+        .file-chip .fc-text { flex: 1; min-width: 0; }
+        .file-chip .fc-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .file-chip .fc-meta { font-size: 12px; color: var(--text-muted); }
+        .file-chip.over-limit .fc-meta { color: var(--danger-text); font-weight: 600; }
+        .file-chip .fc-remove { flex-shrink: 0; width: 32px; height: 32px; border-radius: 16px; border: none; background: rgba(60,60,67,0.12); color: var(--text-dark); font-size: 16px; line-height: 1; cursor: pointer; transition: transform 0.4s var(--spring); }
+        .file-chip .fc-remove:active { transform: scale(0.85); }
+
+        /* ---------- 手机 ---------- */
         @media (max-width: 768px) {
-            .sidebar { transform: translateX(-100%); }
+            .sidebar { transform: translateX(-100%); box-shadow: 20px 0 60px rgba(0,0,0,0.25); }
             .sidebar.open { transform: translateX(0); }
-            .main-content { margin-left: 0; padding: 20px; }
             .hamburger { display: block; }
-            .stats-row { grid-template-columns: 1fr; }
+            .main-content { margin-left: 0; padding: 20px 16px calc(24px + var(--safe-b)); gap: 18px; }
+            .dashboard-header h1 { font-size: 22px; }
+            .stats-row { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+            .stat-card { padding: 14px 10px; text-align: center; }
+            .stat-card label { font-size: 10px; letter-spacing: 0; }
+            .stat-card .value { font-size: 24px; }
             .form-grid { grid-template-columns: 1fr; }
             .form-group.full { grid-column: span 1; }
             .dynamic-row { grid-template-columns: 1fr 1fr; }
+
+            /* 表格在窄屏没法用（7 栏 800px 宽，操作栏会被推到屏幕外），换成卡片 */
+            .table-scroll { display: none; }
+            .card-list { display: flex; }
+            .table-header-bar { padding: 16px; }
+
+            /* Modal 变成从底部升起的 sheet */
+            .modal-overlay { padding: 0; align-items: flex-end; }
+            .modal-content { max-width: none; max-height: 92svh; border-radius: var(--r-lg) var(--r-lg) 0 0; transform: translateY(100%); transition: transform 0.55s var(--spring), opacity 0.3s ease; opacity: 1; }
+            .modal-overlay.shown .modal-content { transform: translateY(0); }
+            .sheet-handle { display: block; }
+            .modal-header { padding: 12px 18px 14px; }
+            .modal-header h2 { font-size: 16px; }
+            .modal-body { padding: 18px 16px; }
+            .modal-footer { padding: 12px 16px calc(12px + var(--safe-b)); }
+            .modal-footer .btn { flex: 1; }
+
+            #confirmModal { align-items: center; padding: 20px; }
+            .confirm-card { transform: scale(0.9); }
         }
+
     </style>
 </head>
 <body>
@@ -117,6 +249,8 @@
             </form>
         </div>
     </div>
+
+    <div class="scrim" id="scrim" onclick="closeSidebarOnMobile()"></div>
 
     <div class="dashboard-container" id="dashboard-view">
         <div class="sidebar" id="sidebar">
@@ -148,21 +282,27 @@
                         <h3 style="margin: 0; color: var(--navy);">Real-time Leads Ledger</h3>
                         <button class="btn btn-outline" onclick="fetchAppointmentsData()">Refresh Feed</button>
                     </div>
-                    <table class="crm-table">
-                        <thead>
-                            <tr>
-                                <th>Client Name</th>
-                                <th>Phone Number</th>
-                                <th>Target Property</th> <th>Target Date</th>
-                                <th>Time Slot</th>
-                                <th>Status</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="leadsTableBody">
-                            <tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">Loading...</td></tr>
-                        </tbody>
-                    </table>
+                    <div class="table-scroll">
+                        <table class="crm-table">
+                            <thead>
+                                <tr>
+                                    <th>Client Name</th>
+                                    <th>Phone Number</th>
+                                    <th>Target Property</th>
+                                    <th>Target Date</th>
+                                    <th>Time Slot</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leadsTableBody">
+                                <tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-list" id="leadsCardList">
+                        <div class="card-empty">Loading...</div>
+                    </div>
                 </div>
             </div>
 
@@ -179,28 +319,34 @@
                         <h3 style="margin: 0; color: var(--navy);">Active Portfolio</h3>
                         <button class="btn btn-outline" onclick="fetchPropertiesData()">Refresh Assets</button>
                     </div>
-                    <table class="crm-table">
-                        <thead>
-                            <tr>
-                                <th>Cover</th>
-                                <th>Project Title</th>
-                                <th>Location</th>
-                                <th>Base Price (RM)</th>
-                                <th>Status</th>
-                                <th style="text-align: right;">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="propertiesTableBody">
-                            <tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">Loading...</td></tr>
-                        </tbody>
-                    </table>
+                    <div class="table-scroll">
+                        <table class="crm-table">
+                            <thead>
+                                <tr>
+                                    <th>Cover</th>
+                                    <th>Project Title</th>
+                                    <th>Location</th>
+                                    <th>Base Price (RM)</th>
+                                    <th>Status</th>
+                                    <th style="text-align: right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="propertiesTableBody">
+                                <tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-list" id="propertiesCardList">
+                        <div class="card-empty">Loading...</div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="modal-overlay" id="propertyModal">
-        <div class="modal-content">
+        <div class="modal-content" id="propertySheet">
+            <div class="sheet-handle" id="propertySheetHandle"></div>
             <div class="modal-header">
                 <h2 id="modalTitle" style="margin:0; font-size:18px;">Add New Property</h2>
                 <button class="btn" style="background:transparent; color:#fff; font-size:24px; padding:0;" onclick="closePropertyModal()">×</button>
@@ -209,12 +355,26 @@
                 
                 <div class="ai-module">
                     <h4 style="margin-top: 0; color: var(--navy);">🤖 AI Auto-Fill Assistant</h4>
-                    <textarea id="aiRawText" rows="3" placeholder="Paste messy WhatsApp text, developer notes, or raw descriptions here..." style="width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px;"></textarea>
-                    <input type="text" id="aiImageUrl" placeholder="[Optional] Paste an image or PDF URL..." style="width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px;">
-                    <label for="aiFile" style="display: block; font-size: 12px; color: #666; margin-bottom: 6px;">Or upload a brochure / price list — PDF or image, up to 3.3MB</label>
-                    <input type="file" id="aiFile" accept="application/pdf,image/png,image/jpeg,image/webp" onchange="showPickedFile()" style="width: 100%; padding: 10px; margin-bottom: 6px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px;">
-                    <div id="aiFileNote" style="font-size: 12px; color: #666; margin-bottom: 12px; min-height: 16px;"></div>
-                    <button type="button" id="aiParseBtn" onclick="parseWithAI()" class="btn btn-primary auto-width" style="background: var(--gold); color: white;">🤖 Auto-Extract & Fill Form</button>
+                    <textarea id="aiRawText" rows="3" class="ai-input" placeholder="Paste messy WhatsApp text, developer notes, or raw descriptions here..."></textarea>
+                    <input type="text" id="aiImageUrl" class="ai-input" placeholder="[Optional] Paste an image or PDF URL...">
+
+                    <label class="upload-zone" id="aiDropZone">
+                        <span class="uz-icon">📄</span>
+                        <span class="uz-title">Tap to upload a brochure or price list</span>
+                        <span class="uz-hint">PDF or photo &middot; up to 3.3MB &middot; or drag one here</span>
+                        <input type="file" id="aiFile" accept="application/pdf,image/png,image/jpeg,image/webp" onchange="showPickedFile()">
+                    </label>
+
+                    <div class="file-chip" id="aiFileChip">
+                        <span class="fc-icon" id="aiFileIcon">📄</span>
+                        <span class="fc-text">
+                            <span class="fc-name" id="aiFileName"></span>
+                            <span class="fc-meta" id="aiFileMeta"></span>
+                        </span>
+                        <button type="button" class="fc-remove" onclick="clearPickedFile(event)" aria-label="Remove file">&times;</button>
+                    </div>
+
+                    <button type="button" id="aiParseBtn" onclick="parseWithAI()" class="btn btn-primary" style="background: var(--gold); color: #fff; margin-top: 14px;">🤖 Auto-Extract &amp; Fill Form</button>
                 </div>
 
                 <form id="propertyForm">
@@ -327,17 +487,50 @@
 
         function showPickedFile() {
             const file = document.getElementById('aiFile').files[0];
-            const note = document.getElementById('aiFileNote');
-            if (!file) { note.innerText = ''; note.style.color = '#666'; return; }
+            const chip = document.getElementById('aiFileChip');
+
+            if (!file) { chip.classList.remove('show', 'over-limit'); return; }
+
             const mb = (file.size / 1024 / 1024).toFixed(1);
-            if (file.size > AI_MAX_UPLOAD_BYTES) {
-                note.style.color = '#c0392b';
-                note.innerText = file.name + ' — ' + mb + 'MB, too big. Host it and paste the URL above instead.';
-            } else {
-                note.style.color = '#666';
-                note.innerText = file.name + ' — ' + mb + 'MB, ready.';
-            }
+            const tooBig = file.size > AI_MAX_UPLOAD_BYTES;
+
+            document.getElementById('aiFileIcon').innerText = file.type === 'application/pdf' ? '📄' : '🖼️';
+            document.getElementById('aiFileName').innerText = file.name;
+            document.getElementById('aiFileMeta').innerText = tooBig
+                ? mb + 'MB — too big, max 3.3MB. Paste a URL instead.'
+                : mb + 'MB · ready';
+
+            chip.classList.add('show');
+            chip.classList.toggle('over-limit', tooBig);
         }
+
+        function clearPickedFile(e) {
+            // 这颗按钮包在 <label> 里，不拦住的话点它会顺便再唤出选档面板
+            if (e) { e.preventDefault(); e.stopPropagation(); }
+            document.getElementById('aiFile').value = '';
+            showPickedFile();
+        }
+
+        // 桌面：把档案拖到上传区
+        (function initDropZone() {
+            const zone = document.getElementById('aiDropZone');
+            if (!zone) return;
+            const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
+
+            ['dragenter', 'dragover'].forEach(evt =>
+                zone.addEventListener(evt, (e) => { stop(e); zone.classList.add('dragover'); }));
+            ['dragleave', 'drop'].forEach(evt =>
+                zone.addEventListener(evt, (e) => { stop(e); zone.classList.remove('dragover'); }));
+
+            zone.addEventListener('drop', (e) => {
+                const dropped = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+                if (!dropped) return;
+                const dt = new DataTransfer();
+                dt.items.add(dropped);
+                document.getElementById('aiFile').files = dt.files;
+                showPickedFile();
+            });
+        })();
 
         // 读成 base64（去掉 data: 前缀，只留内容本身）
         function readFileAsBase64(file) {
@@ -430,12 +623,30 @@
             }
         }
 
+        /* Modal 要两段式：先 .active 让它进入排版，再 .shown 触发过场动画。
+           两个 class 同一帧加上的话浏览器不会有过场，会直接跳到最终状态，
+           所以中间必须逼浏览器认下初始状态。
+           这里读 offsetWidth 强制同步回流，而不是用 requestAnimationFrame ——
+           rAF 在分页被切到背景时不会触发，那样弹窗就永远不会出现。 */
+        function openModal(id) {
+            const el = document.getElementById(id);
+            el.classList.add('active');
+            void el.offsetWidth;
+            el.classList.add('shown');
+        }
+
+        function closeModal(id) {
+            const el = document.getElementById(id);
+            el.classList.remove('shown');
+            setTimeout(() => el.classList.remove('active'), 320);
+        }
+
         function showConfirm(msg, callback) {
             document.getElementById('confirmMsg').innerText = msg;
             confirmActionCallback = callback;
-            document.getElementById('confirmModal').classList.add('active');
+            openModal('confirmModal');
         }
-        function closeConfirm() { document.getElementById('confirmModal').classList.remove('active'); }
+        function closeConfirm() { closeModal('confirmModal'); }
         function executeConfirm() { if(confirmActionCallback) confirmActionCallback(); closeConfirm(); }
 
         setInterval(() => {
@@ -444,8 +655,17 @@
             }
         }, 1000);
 
-        function toggleSidebar(e) { e.stopPropagation(); document.getElementById('sidebar').classList.toggle('open'); }
-        function closeSidebarOnMobile() { if(window.innerWidth <= 768) { document.getElementById('sidebar').classList.remove('open'); } }
+        function toggleSidebar(e) {
+            e.stopPropagation();
+            const open = document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('scrim').classList.toggle('show', open);
+        }
+
+        function closeSidebarOnMobile() {
+            if (window.innerWidth > 768) return;
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('scrim').classList.remove('show');
+        }
 
         async function checkSession() {
             const { data: { session } } = await supabaseClient.auth.getSession();
@@ -490,32 +710,70 @@
                 let { data: appointments, error } = await supabaseClient.from('appointments').select('*').order('created_at', { ascending: false });
                 if (error) throw error;
                 const tbody = document.getElementById('leadsTableBody');
-                tbody.innerHTML = '';
-                
+                const cards = document.getElementById('leadsCardList');
+                const emptyMsg = 'No viewing leads registered yet.';
+
                 if (!appointments || appointments.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 40px;">No viewing leads registered yet.</td></tr>';
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:40px;">${emptyMsg}</td></tr>`;
+                    cards.innerHTML = `<div class="card-empty">${emptyMsg}</div>`;
                     updateMetrics(0, 0, 0); return;
                 }
 
                 let pending = 0, completed = 0;
-                appointments.forEach(lead => {
+                let rowsHtml = '', cardsHtml = '';
+
+                appointments.forEach((lead, i) => {
                     const status = lead.status || 'Pending';
                     status === 'Pending' ? pending++ : completed++;
                     const isDone = status === 'Completed';
-                    tbody.innerHTML += `
+
+                    const name = escapeHtml(lead.client_name || 'Unknown');
+                    const phone = escapeHtml(lead.client_phone || '-');
+                    const wa = formatPhoneForWhatsApp(lead.client_phone);
+                    const property = escapeHtml(lead.property_name || 'Not Specified');
+                    const date = escapeHtml(lead.booking_date);
+                    const slot = escapeHtml(lead.time_slot);
+                    const badge = `<span class="status-badge ${isDone ? 'completed' : 'pending'}">${isDone ? 'Contacted' : 'Pending'}</span>`;
+                    const nextStatus = isDone ? 'Pending' : 'Completed';
+                    const toggleLabel = isDone ? 'Mark Pending' : 'Mark Contacted';
+
+                    rowsHtml += `
                         <tr>
-                            <td style="font-weight: 600; color: var(--navy);">${escapeHtml(lead.client_name || 'Unknown')}</td>
-                            <td><a href="https://wa.me/${formatPhoneForWhatsApp(lead.client_phone)}" target="_blank" style="color: var(--success-text); font-weight: 600; text-decoration: underline;">${escapeHtml(lead.client_phone || '-')}</a></td>
-                            <td style="font-weight: 600; color: var(--gold);">${escapeHtml(lead.property_name || 'Not Specified')}</td>
-                            <td style="font-weight: 500;">${escapeHtml(lead.booking_date)}</td>
-                            <td><span style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-weight: 600;">${escapeHtml(lead.time_slot)}</span></td>
-                            <td><span class="status-badge ${isDone ? 'completed' : 'pending'}">${isDone ? 'Contacted' : 'Pending'}</span></td>
+                            <td style="font-weight: 600; color: var(--navy);">${name}</td>
+                            <td><a href="https://wa.me/${wa}" target="_blank" style="color: var(--success-text); font-weight: 600; text-decoration: underline;">${phone}</a></td>
+                            <td style="font-weight: 600; color: var(--gold);">${property}</td>
+                            <td style="font-weight: 500;">${date}</td>
+                            <td><span style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-weight: 600;">${slot}</span></td>
+                            <td>${badge}</td>
                             <td>
-                                <button class="btn btn-outline" style="font-size: 11px; margin-right: 4px;" onclick="updateLeadStatus('${lead.id}', '${isDone ? 'Pending' : 'Completed'}')">${isDone ? 'Mark Pending' : 'Mark Contacted'}</button>
+                                <button class="btn btn-outline" style="font-size: 11px; margin-right: 4px;" onclick="updateLeadStatus('${lead.id}', '${nextStatus}')">${toggleLabel}</button>
                                 <button class="btn btn-danger" style="font-size: 11px;" onclick="deleteAppointment('${lead.id}')">Del</button>
                             </td>
                         </tr>`;
+
+                    cardsHtml += `
+                        <div class="data-card" style="animation-delay: ${Math.min(i, 8) * 40}ms">
+                            <div class="card-top">
+                                <div>
+                                    <div class="card-title">${name}</div>
+                                    <div class="card-sub">${property}</div>
+                                </div>
+                                ${badge}
+                            </div>
+                            <div class="card-rows">
+                                <div class="card-row"><span class="k">Phone</span><span class="v"><a href="https://wa.me/${wa}" target="_blank" style="color: var(--success-text); text-decoration: underline;">${phone}</a></span></div>
+                                <div class="card-row"><span class="k">Date</span><span class="v">${date}</span></div>
+                                <div class="card-row"><span class="k">Time</span><span class="v">${slot}</span></div>
+                            </div>
+                            <div class="card-actions">
+                                <button class="btn btn-outline" onclick="updateLeadStatus('${lead.id}', '${nextStatus}')">${toggleLabel}</button>
+                                <button class="btn btn-danger" onclick="deleteAppointment('${lead.id}')">Delete</button>
+                            </div>
+                        </div>`;
                 });
+
+                tbody.innerHTML = rowsHtml;
+                cards.innerHTML = cardsHtml;
                 updateMetrics(appointments.length, pending, completed);
             } catch (err) { showToast(err.message, 'error'); }
         }
@@ -548,33 +806,67 @@
                 if (error) throw error;
                 allProperties = data;
                 const tbody = document.getElementById('propertiesTableBody');
-                tbody.innerHTML = '';
-                
+                const cards = document.getElementById('propertiesCardList');
+                const emptyMsg = 'No properties listed in database.';
+
                 if (!data || data.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 40px;">No properties listed in database.</td></tr>';
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:40px;">${emptyMsg}</td></tr>`;
+                    cards.innerHTML = `<div class="card-empty">${emptyMsg}</div>`;
                     return;
                 }
 
-                data.forEach(prop => {
+                const FALLBACK_IMG = 'https://placehold.co/200x200/0B1D3A/C8A96E?text=No+Image';
+                let rowsHtml = '', cardsHtml = '';
+
+                data.forEach((prop, i) => {
                     let insightsCount = 0;
                     try { if(prop.price_insights) insightsCount = prop.price_insights.length || 0; } catch(e){}
-                    const safeImage = prop.image_url ? prop.image_url.split(',')[0].trim() : 'https://placehold.co/200x200/0B1D3A/C8A96E?text=No+Image';
-                    tbody.innerHTML += `
+
+                    const safeImage = prop.image_url ? prop.image_url.split(',')[0].trim() : FALLBACK_IMG;
+                    const title = escapeHtml(prop.title);
+                    const location = escapeHtml(prop.location);
+                    const price = 'RM ' + Number(prop.price).toLocaleString();
+                    const statusBadge = `<span class="status-badge completed" style="background: #f1f5f9; color: var(--navy);">${escapeHtml(prop.status)}</span>`;
+
+                    rowsHtml += `
                         <tr>
-                            <td><img src="${safeImage}" onerror="this.src='https://placehold.co/200x200/0B1D3A/C8A96E?text=ERROR'" alt="cover" style="width: 50px; height: 50px; border-radius: 6px; object-fit: cover;"></td>
+                            <td><img src="${safeImage}" onerror="this.src='${FALLBACK_IMG}'" alt="cover" style="width: 50px; height: 50px; border-radius: 6px; object-fit: cover;"></td>
                             <td>
-                                <div style="font-weight: 700; color: var(--navy);">${escapeHtml(prop.title)}</div>
+                                <div style="font-weight: 700; color: var(--navy);">${title}</div>
                                 <div style="font-size: 11px; color: var(--text-muted);">${insightsCount} Floor Plans attached</div>
                             </td>
-                            <td style="font-size: 13px;">${escapeHtml(prop.location)}</td>
-                            <td style="font-weight: 600; color: var(--gold);">RM ${Number(prop.price).toLocaleString()}</td>
-                            <td><span class="status-badge completed" style="background: #f1f5f9; color: var(--navy);">${escapeHtml(prop.status)}</span></td>
+                            <td style="font-size: 13px;">${location}</td>
+                            <td style="font-weight: 600; color: var(--gold);">${price}</td>
+                            <td>${statusBadge}</td>
                             <td style="text-align: right;">
                                 <button class="btn btn-outline" style="font-size: 11px; margin-right: 4px;" onclick="editProperty('${prop.id}')">Edit</button>
                                 <button class="btn btn-danger" style="font-size: 11px;" onclick="deleteProperty('${prop.id}')">Del</button>
                             </td>
                         </tr>`;
+
+                    cardsHtml += `
+                        <div class="data-card" style="animation-delay: ${Math.min(i, 8) * 40}ms">
+                            <div class="card-top">
+                                <img class="card-thumb" src="${safeImage}" onerror="this.src='${FALLBACK_IMG}'" alt="">
+                                <div style="flex: 1; min-width: 0;">
+                                    <div class="card-title">${title}</div>
+                                    <div class="card-sub">${location}</div>
+                                </div>
+                                ${statusBadge}
+                            </div>
+                            <div class="card-rows">
+                                <div class="card-row"><span class="k">Price</span><span class="v" style="color: var(--gold);">${price}</span></div>
+                                <div class="card-row"><span class="k">Floor plans</span><span class="v">${insightsCount}</span></div>
+                            </div>
+                            <div class="card-actions">
+                                <button class="btn btn-outline" onclick="editProperty('${prop.id}')">Edit</button>
+                                <button class="btn btn-danger" onclick="deleteProperty('${prop.id}')">Delete</button>
+                            </div>
+                        </div>`;
                 });
+
+                tbody.innerHTML = rowsHtml;
+                cards.innerHTML = cardsHtml;
             } catch (err) { showToast(err.message, 'error'); }
         }
 
@@ -582,15 +874,14 @@
             document.getElementById('propertyForm').reset();
             document.getElementById('aiRawText').value = '';
             document.getElementById('aiImageUrl').value = '';
-            document.getElementById('aiFile').value = '';
-            document.getElementById('aiFileNote').innerText = '';
+            clearPickedFile();
             document.getElementById('propId').value = '';
             document.getElementById('modalTitle').innerText = 'Add New Property';
             document.getElementById('insightsWrapper').innerHTML = '';
             document.getElementById('imgPreview').style.display = 'none';
-            document.getElementById('propertyModal').classList.add('active');
+            openModal('propertyModal');
         }
-        function closePropertyModal() { document.getElementById('propertyModal').classList.remove('active'); }
+        function closePropertyModal() { closeModal('propertyModal'); }
 
         function editProperty(id) {
             const prop = allProperties.find(p => p.id === id);
@@ -634,7 +925,7 @@
             if(prop.price_insights && Array.isArray(prop.price_insights)) {
                 prop.price_insights.forEach(item => addInsightRow(item.type, item.size, item.layout, item.price));
             }
-            document.getElementById('propertyModal').classList.add('active');
+            openModal('propertyModal');
         }
 
         // ==========================================
@@ -757,6 +1048,60 @@
             `;
             wrapper.appendChild(row);
         }
+
+        /* 手机上 modal 是从底部升起的 sheet，让它能像原生一样往下拖关掉。
+           往上拖只跟随 1/4 的距离 —— 这就是 iOS 那种「拉得动但拉不远」的阻尼感。 */
+        (function initSheetDrag() {
+            const sheet = document.getElementById('propertySheet');
+            if (!sheet) return;
+
+            const grips = [
+                document.getElementById('propertySheetHandle'),
+                sheet.querySelector('.modal-header')
+            ];
+
+            let startY = 0, lastY = 0, lastT = 0, velocity = 0, dragging = false;
+
+            function onDown(e) {
+                if (window.innerWidth > 768) return;
+                dragging = true;
+                startY = lastY = e.clientY;
+                lastT = e.timeStamp;
+                velocity = 0;
+                sheet.style.transition = 'none';
+                if (e.currentTarget.setPointerCapture) e.currentTarget.setPointerCapture(e.pointerId);
+            }
+
+            function onMove(e) {
+                if (!dragging) return;
+                let dy = e.clientY - startY;
+                if (dy < 0) dy *= 0.25;
+                const dt = e.timeStamp - lastT;
+                if (dt > 0) velocity = (e.clientY - lastY) / dt;
+                lastY = e.clientY;
+                lastT = e.timeStamp;
+                sheet.style.transform = 'translateY(' + dy + 'px)';
+            }
+
+            function onUp() {
+                if (!dragging) return;
+                dragging = false;
+                const dy = lastY - startY;
+                sheet.style.transition = '';
+                sheet.style.transform = '';
+                // 拖超过 120px，或者甩得够快，就当作要关掉
+                if (dy > 120 || velocity > 0.6) closePropertyModal();
+            }
+
+            grips.forEach(function (grip) {
+                if (!grip) return;
+                grip.style.touchAction = 'none';
+                grip.addEventListener('pointerdown', onDown);
+                grip.addEventListener('pointermove', onMove);
+                grip.addEventListener('pointerup', onUp);
+                grip.addEventListener('pointercancel', onUp);
+            });
+        })();
 
         function escapeHtml(str) { return str ? String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") : ""; }
         function formatPhoneForWhatsApp(phone) { 
