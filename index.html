@@ -251,6 +251,39 @@
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
         }
+
+        /* ---------- 价格洞察：全部由真实房源算出来 ---------- */
+        .pulse-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .pulse-cell { background: var(--bg-dark); border-radius: 12px; padding: 14px 10px; text-align: center; }
+        .pulse-cell .n { font-family: 'Playfair Display', serif; font-size: 19px; font-weight: 700;
+                         color: var(--primary); line-height: 1.15; }
+        .pulse-cell .l { font-size: 9px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600;
+                         color: rgba(255,255,255,0.55); margin-top: 6px; }
+
+        .insight-block { background: #fff; padding: 20px; border-radius: 12px; margin-bottom: 16px;
+                         box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid var(--border-color); }
+        .insight-block h4 { margin: 0 0 4px; font-family: 'Playfair Display', serif;
+                            color: var(--bg-dark); font-size: 17px; }
+        .insight-block > small { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 16px; }
+
+        .psf-row { margin-bottom: 15px; }
+        .psf-row:last-child { margin-bottom: 0; }
+        .psf-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+        .psf-name { font-size: 13px; font-weight: 700; color: var(--bg-dark); overflow: hidden;
+                    text-overflow: ellipsis; white-space: nowrap; }
+        .psf-val { font-size: 13px; font-weight: 700; color: var(--primary); white-space: nowrap; }
+        .psf-val.none { color: var(--text-muted); font-weight: 600; font-size: 11px; font-style: italic; }
+        .psf-track { height: 8px; border-radius: 4px; background: var(--bg-light);
+                     border: 1px solid var(--border-color); overflow: hidden; }
+        .psf-fill { height: 100%; width: 0; border-radius: 4px;
+                    background: linear-gradient(90deg, var(--bg-dark), var(--primary));
+                    transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1); }
+        .psf-sub { font-size: 11px; color: var(--text-muted); margin-top: 5px; }
+
+        .status-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+        .status-pill { font-size: 12px; font-weight: 600; padding: 7px 13px; border-radius: 20px;
+                       background: var(--bg-light); border: 1px solid var(--border-color); color: var(--bg-dark); }
+        .status-pill b { color: var(--primary); margin-left: 7px; }
     </style>
 </head>
 <body>
@@ -372,25 +405,11 @@
 
                 <div class="profile-feed-section">
                     <div class="feed-tabs">
-                        <button class="feed-tab active" onclick="switchFeed('insights', this)">📊 Market Insights</button>
+                        <button class="feed-tab active" onclick="switchFeed('insights', this)">📊 Price Insights</button>
                         <button class="feed-tab" onclick="switchFeed('reviews', this)">💬 Client Reviews</button>
                     </div>
                     
-                    <div id="feedContent" class="feed-content-wrapper">
-                        <div class="insight-item-card">
-                            <span class="badge-news">MARKET REPORT</span>
-                            <h4>Mont Kiara 2026 租金回报率再度领跑全马</h4>
-                            <p>随着外籍高管的持续流入，高品质的3房户型在过去两个季度租金上涨了8%。目前投资 Miranda Hill 是截流高净值租客的绝佳时机...</p>
-                            <small>Updated: 2 days ago</small>
-                        </div>
-                        
-                        <div class="insight-item-card">
-                            <span class="badge-news" style="background: var(--bg-dark);">INFRASTRUCTURE</span>
-                            <h4>MRT 3 站点规划对周边高端独栋洋房的长期价值分析</h4>
-                            <p>最新公布的路线图显示，几个核心地下站点将有效打通东西部核心资产走廊。早期入场的高端项目将获得至少 15% 的溢价空间...</p>
-                            <small>Updated: 1 week ago</small>
-                        </div>
-                    </div>
+                    <div id="feedContent" class="feed-content-wrapper"></div>
                 </div>
 
             </div>
@@ -586,6 +605,7 @@
                 initMapbox();
                 applyAllFilters();
                 generateCalendar();
+                renderPriceInsights();
                 openFromHash();
             }
         }
@@ -677,42 +697,156 @@
             }, 150);
         }
 
+        // size_sqft 是 admin 自由输入，格式很杂：
+        //   "690 - 980"、"764 – 1,163 sqft"、"1000"、空白
+        // 抓出所有数字，滤掉明显不是面积的（房数那种个位数），取最小与最大。
+        function parseSqftRange(raw) {
+            if (!raw) return null;
+            const nums = String(raw).replace(/,/g, '').match(/\d+(?:\.\d+)?/g);
+            if (!nums) return null;
+            const vals = nums.map(Number).filter(n => n >= 100 && n <= 20000);
+            if (!vals.length) return null;
+            return { min: Math.min(...vals), max: Math.max(...vals) };
+        }
+
+        // 起价配最小户型，才是这套房源真正的「入场每尺价」
+        function psfOf(asset) {
+            const range = parseSqftRange(asset.size_sqft);
+            const price = parseInt(asset.price || 0);
+            if (!range || !price) return null;
+            return Math.round(price / range.min);
+        }
+
+        function shortMoney(n) {
+            if (n >= 1000000) return 'RM' + (n / 1000000).toFixed(n % 1000000 === 0 ? 0 : 1) + 'm';
+            if (n >= 1000) return 'RM' + Math.round(n / 1000) + 'k';
+            return 'RM' + n;
+        }
+
+        function renderPriceInsights() {
+            const content = document.getElementById('feedContent');
+            const all = globalPropertiesRegistry || [];
+
+            if (!all.length) {
+                content.innerHTML = '<div class="empty-state-msg">Insights appear once listings are published.</div>';
+                return;
+            }
+
+            const prices = all.map(p => parseInt(p.price || 0)).filter(Boolean);
+            const priced = all.map(p => ({ asset: p, psf: psfOf(p) }));
+            const withPsf = priced.filter(x => x.psf).sort((a, b) => b.psf - a.psf);
+            const withoutPsf = priced.filter(x => !x.psf);
+
+            const median = (arr) => {
+                if (!arr.length) return null;
+                const s = [...arr].sort((a, b) => a - b);
+                const m = Math.floor(s.length / 2);
+                return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2);
+            };
+            const medPsf = median(withPsf.map(x => x.psf));
+            const maxPsf = withPsf.length ? withPsf[0].psf : 0;
+
+            // --- 顶部三个数字 ---
+            let html = `
+                <div class="pulse-strip">
+                    <div class="pulse-cell">
+                        <div class="n">${all.length}</div>
+                        <div class="l">Listings</div>
+                    </div>
+                    <div class="pulse-cell">
+                        <div class="n">${prices.length ? shortMoney(Math.min(...prices)) + '–' + shortMoney(Math.max(...prices)).replace('RM', '') : '—'}</div>
+                        <div class="l">Price range</div>
+                    </div>
+                    <div class="pulse-cell">
+                        <div class="n">${medPsf ? 'RM' + medPsf : '—'}</div>
+                        <div class="l">Median psf</div>
+                    </div>
+                </div>`;
+
+            // --- 每尺价比较 ---
+            html += '<div class="insight-block"><h4>Price per sq ft</h4>' +
+                    '<small>Entry price divided by the smallest layout in each project.</small>';
+
+            if (!withPsf.length) {
+                html += '<div class="psf-sub">No listing has a built-up size recorded yet.</div>';
+            } else {
+                withPsf.forEach(({ asset, psf }) => {
+                    const range = parseSqftRange(asset.size_sqft);
+                    const pct = Math.max(8, Math.round((psf / maxPsf) * 100));
+                    const vsMed = medPsf ? Math.round(((psf - medPsf) / medPsf) * 100) : 0;
+                    const vsText = !medPsf || withPsf.length < 2 ? ''
+                        : (vsMed === 0 ? ' &middot; at the median'
+                            : ` &middot; ${Math.abs(vsMed)}% ${vsMed > 0 ? 'above' : 'below'} median`);
+                    html += `
+                        <div class="psf-row">
+                            <div class="psf-head">
+                                <span class="psf-name">${esc(asset.title)}</span>
+                                <span class="psf-val">RM ${psf.toLocaleString()} psf</span>
+                            </div>
+                            <div class="psf-track"><div class="psf-fill" data-pct="${pct}"></div></div>
+                            <div class="psf-sub">${esc(asset.location || '')} &middot; from ${range.min.toLocaleString()} sqft${vsText}</div>
+                        </div>`;
+                });
+            }
+
+            if (withoutPsf.length) {
+                const names = withoutPsf.map(x => esc(x.asset.title)).join(', ');
+                html += `<div class="psf-sub" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border-color);">
+                            Not comparable yet: ${names} — no built-up size recorded.
+                         </div>`;
+            }
+            html += '</div>';
+
+            // --- 依状态分布 ---
+            const byStatus = {};
+            all.forEach(p => {
+                const k = p.status || 'Unspecified';
+                byStatus[k] = (byStatus[k] || 0) + 1;
+            });
+            html += '<div class="insight-block"><h4>Availability</h4>' +
+                    '<small>Where the portfolio sits right now.</small><div class="status-pills">';
+            Object.keys(byStatus).forEach(k => {
+                html += `<span class="status-pill">${esc(k)}<b>${byStatus[k]}</b></span>`;
+            });
+
+            const tenures = {};
+            all.forEach(p => { if (p.tenure) tenures[p.tenure] = (tenures[p.tenure] || 0) + 1; });
+            Object.keys(tenures).forEach(k => {
+                html += `<span class="status-pill">${esc(k)}<b>${tenures[k]}</b></span>`;
+            });
+            html += '</div></div>';
+
+            content.innerHTML = html;
+
+            // 长条从 0 长出来。先写入 DOM 再设宽度，否则没有过场可看。
+            requestAnimationFrame(() => {
+                content.querySelectorAll('.psf-fill').forEach(el => {
+                    el.style.width = el.getAttribute('data-pct') + '%';
+                });
+            });
+        }
+
         function switchFeed(type, btn) {
             document.querySelectorAll('.feed-tab').forEach(t => t.classList.remove('active'));
-            if(btn) btn.classList.add('active');
-            
+            if (btn) btn.classList.add('active');
+
+            if (type === 'insights') { renderPriceInsights(); return; }
+
             const content = document.getElementById('feedContent');
-            if(type === 'insights') {
-                content.innerHTML = `
-                    <div class="insight-item-card">
-                        <span class="badge-news">MARKET REPORT</span>
-                        <h4>Mont Kiara 2026 租金回报率再度领跑全马</h4>
-                        <p>随着外籍高管的持续流入，高品质的3房户型在过去两个季度租金上涨了8%。目前投资 Miranda Hill 是截流高净值租客的绝佳时机...</p>
-                        <small>Updated: 2 days ago</small>
-                    </div>
-                    <div class="insight-item-card">
-                        <span class="badge-news" style="background: var(--bg-dark);">INFRASTRUCTURE</span>
-                        <h4>MRT 3 站点规划对周边高端独栋洋房的长期价值分析</h4>
-                        <p>最新公布的路线图显示，几个核心地下站点将有效打通东西部核心资产走廊。早期入场的高端项目将获得至少 15% 的溢价空间...</p>
-                        <small>Updated: 1 week ago</small>
-                    </div>
-                `;
-            } else {
-                content.innerHTML = `
-                    <div class="insight-item-card">
-                        <span class="badge-news" style="background: var(--success);">5-STAR REVIEW</span>
-                        <h4>"Kareen is incredibly professional & insightful!"</h4>
-                        <p>She helped us secure a below-market-value unit at Mont Kiara. Her insights on the MRT3 alignment and local tenant demographics were spot on. Highly recommend her portfolio management services.</p>
-                        <small>From: Mr. Tan (Overseas Investor) - 3 days ago</small>
-                    </div>
-                    <div class="insight-item-card">
-                        <span class="badge-news" style="background: var(--success);">5-STAR REVIEW</span>
-                        <h4>"Flawless execution for MM2H"</h4>
-                        <p>Found my dream retirement home through Kareen. The VR viewing feature saved me multiple flights to KL. The entire transaction was smooth and fully transparent.</p>
-                        <small>From: Sarah W. (Expat) - 2 weeks ago</small>
-                    </div>
-                `;
-            }
+            content.innerHTML = `
+                <div class="insight-item-card">
+                    <span class="badge-news" style="background: var(--success);">5-STAR REVIEW</span>
+                    <h4>"Kareen is incredibly professional &amp; insightful!"</h4>
+                    <p>She helped us secure a below-market-value unit at Mont Kiara. Her insights on the MRT3 alignment and local tenant demographics were spot on. Highly recommend her portfolio management services.</p>
+                    <small>From: Mr. Tan (Overseas Investor)</small>
+                </div>
+                <div class="insight-item-card">
+                    <span class="badge-news" style="background: var(--success);">5-STAR REVIEW</span>
+                    <h4>"Flawless execution for MM2H"</h4>
+                    <p>Found my dream retirement home through Kareen. The VR viewing feature saved me multiple flights to KL. The entire transaction was smooth and fully transparent.</p>
+                    <small>From: Sarah W. (Expat)</small>
+                </div>
+            `;
         }
 
         // ==========================================
