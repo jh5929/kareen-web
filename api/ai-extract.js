@@ -276,17 +276,20 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
+  /* 先验身份，再看配置。
+     顺序反过来的话，任何陌生人 POST 一下就能知道这台服务器有没有配 key ——
+     那是内部状态，不该对外泄露。 */
+  const user = await verifyUser(req.headers.authorization);
+  if (!user) {
+    return res.status(401).json({ error: 'Not authorised. Please log in again.' });
+  }
+
   const provider = pickProvider();
   if (!provider) {
     console.error('No AI key configured on this deployment.');
     return res.status(500).json({
       error: 'Server has no AI key. Set GEMINI_API_KEY (or OPENAI_API_KEY) in Vercel.',
     });
-  }
-
-  const user = await verifyUser(req.headers.authorization);
-  if (!user) {
-    return res.status(401).json({ error: 'Not authorised. Please log in again.' });
   }
 
   const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
