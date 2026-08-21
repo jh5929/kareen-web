@@ -210,7 +210,10 @@
                 <div class="ai-module">
                     <h4 style="margin-top: 0; color: var(--navy);">🤖 AI Auto-Fill Assistant</h4>
                     <textarea id="aiRawText" rows="3" placeholder="Paste messy WhatsApp text, developer notes, or raw descriptions here..." style="width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px;"></textarea>
-                    <input type="text" id="aiImageUrl" placeholder="[Optional] Paste an image URL to enable visual extraction..." style="width: 100%; padding: 12px; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px;">
+                    <input type="text" id="aiImageUrl" placeholder="[Optional] Paste an image or PDF URL..." style="width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px;">
+                    <label for="aiFile" style="display: block; font-size: 12px; color: #666; margin-bottom: 6px;">Or upload a brochure / price list — PDF or image, up to 3.3MB</label>
+                    <input type="file" id="aiFile" accept="application/pdf,image/png,image/jpeg,image/webp" onchange="showPickedFile()" style="width: 100%; padding: 10px; margin-bottom: 6px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px;">
+                    <div id="aiFileNote" style="font-size: 12px; color: #666; margin-bottom: 12px; min-height: 16px;"></div>
                     <button type="button" id="aiParseBtn" onclick="parseWithAI()" class="btn btn-primary auto-width" style="background: var(--gold); color: white;">🤖 Auto-Extract & Fill Form</button>
                 </div>
 
@@ -319,13 +322,46 @@
         // ==========================================
         // Bulletproof AI Parsing Logic
         // ==========================================
+        // 直接上传的上限是 3.3MB —— Vercel 的请求体上限 4.5MB，base64 会膨胀约 33%
+        const AI_MAX_UPLOAD_BYTES = 3.3 * 1024 * 1024;
+
+        function showPickedFile() {
+            const file = document.getElementById('aiFile').files[0];
+            const note = document.getElementById('aiFileNote');
+            if (!file) { note.innerText = ''; note.style.color = '#666'; return; }
+            const mb = (file.size / 1024 / 1024).toFixed(1);
+            if (file.size > AI_MAX_UPLOAD_BYTES) {
+                note.style.color = '#c0392b';
+                note.innerText = file.name + ' — ' + mb + 'MB, too big. Host it and paste the URL above instead.';
+            } else {
+                note.style.color = '#666';
+                note.innerText = file.name + ' — ' + mb + 'MB, ready.';
+            }
+        }
+
+        // 读成 base64（去掉 data: 前缀，只留内容本身）
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result).split(',')[1]);
+                reader.onerror = () => reject(new Error('Could not read that file.'));
+                reader.readAsDataURL(file);
+            });
+        }
+
         async function parseWithAI() {
             const rawText = document.getElementById('aiRawText').value;
             const photoUrl = document.getElementById('aiImageUrl').value;
+            const picked = document.getElementById('aiFile').files[0] || null;
             const parseBtn = document.getElementById('aiParseBtn');
 
-            if (!rawText.trim() && !photoUrl.trim()) {
-                showToast('Please paste some text or an image URL first.', 'error');
+            if (!rawText.trim() && !photoUrl.trim() && !picked) {
+                showToast('Paste some text, a URL, or pick a file first.', 'error');
+                return;
+            }
+
+            if (picked && picked.size > AI_MAX_UPLOAD_BYTES) {
+                showToast('That file is too big. Max 3.3MB for direct upload.', 'error');
                 return;
             }
 
@@ -338,13 +374,21 @@
                 const { data: { session } } = await supabaseClient.auth.getSession();
                 if (!session) throw new Error('Session expired. Please log in again.');
 
+                const requestBody = { rawText, photoUrl };
+                if (picked) {
+                    requestBody.file = {
+                        mimeType: picked.type || 'application/octet-stream',
+                        data: await readFileAsBase64(picked)
+                    };
+                }
+
                 const response = await fetch('/api/ai-extract', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${session.access_token}`
                     },
-                    body: JSON.stringify({ rawText, photoUrl })
+                    body: JSON.stringify(requestBody)
                 });
 
                 const aiResult = await response.json();
@@ -538,6 +582,8 @@
             document.getElementById('propertyForm').reset();
             document.getElementById('aiRawText').value = '';
             document.getElementById('aiImageUrl').value = '';
+            document.getElementById('aiFile').value = '';
+            document.getElementById('aiFileNote').innerText = '';
             document.getElementById('propId').value = '';
             document.getElementById('modalTitle').innerText = 'Add New Property';
             document.getElementById('insightsWrapper').innerHTML = '';

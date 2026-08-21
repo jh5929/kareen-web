@@ -31,7 +31,20 @@ const SUPABASE_PUBLISHABLE_KEY =
   process.env.SUPABASE_PUBLISHABLE_KEY ||
   'sb_publishable_GnK_xyRsCtIO7vtE9k-zPw_eSs4Erd0';
 
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB，避免拖垮 function
+/* 可以喂给模型的档案类型 */
+const ALLOWED_MIME = /^(image\/(png|jpe?g|webp|gif|heic|heif)|application\/pdf)$/;
+
+/* 直接从浏览器上传：Vercel 的请求体上限是 4.5MB，
+   而 base64 会让体积膨胀约 33%，所以原始档案实际只能到 3.3MB 左右。 */
+const MAX_UPLOAD_BYTES = 3.3 * 1024 * 1024;
+
+/* 由服务器去抓网址：不受 Vercel 请求体限制，
+   瓶颈变成 Gemini 单次请求约 20MB 的上限，留点余裕抓 15MB。 */
+const MAX_FETCH_BYTES = 15 * 1024 * 1024;
+
+function mb(bytes) {
+  return (bytes / 1024 / 1024).toFixed(1);
+}
 
 /* --------------------------------------------------------------------------
  * 校验请求者确实是登入的 admin。
@@ -55,9 +68,9 @@ async function verifyUser(authHeader) {
   }
 }
 
-function buildPrompt(rawText) {
+function buildPrompt(rawText, hasAttachment) {
   return [
-    'You are a top-tier Malaysian real estate assistant. Extract property details from the provided text and output strictly in JSON format.',
+    'You are a top-tier Malaysian real estate assistant. Extract property details from the provided material and output strictly in JSON format.',
     'If information is missing, leave it as an empty string.',
     'Return ONLY the raw JSON object, with no markdown code fences around it.',
     '',
@@ -87,26 +100,77 @@ function buildPrompt(rawText) {
     '  }',
     '}',
     '',
-    'Text to analyze: ' + rawText,
-  ].join('\n');
+    hasAttachment
+      ? 'A file is attached (a brochure, price list, or photo). Read it in full — including tables and floor plan schedules — and treat it as the primary source. Where a price list gives several unit types, use the smallest/lowest figures for price and take the full span for size_sqft and bedrooms (e.g. "690 - 980").'
+      : null,
+    rawText
+      ? 'Text to analyze: ' + rawText
+      : 'No text was pasted — extract everything from the attached file.',
+  ]
+    .filter(function (line) { return line !== null; })
+    .join('\n');
 }
 
 /* --------------------------------------------------------------------------
- * Gemini 不接受任意的图片网址（fileUri 只认 Files API），
- * 所以图片得由服务器抓下来转成 base64 内联进去。
+ * 附件有两条来路：
+ *   1. 浏览器直接上传的档案（已经是 base64）
+ *   2. 一个网址，由服务器抓下来转 base64
+ * Gemini 不接受任意网址（fileUri 只认 Files API），所以两条路最后
+ * 都得变成内联的 base64。
  * ----------------------------------------------------------------------- */
-async function fetchImageAsInlineData(url) {
-  const res = await fetch(url, { redirect: 'follow' });
-  if (!res.ok) throw new Error('Could not download that image (HTTP ' + res.status + ').');
 
-  const mimeType = (res.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
-  if (!mimeType.startsWith('image/')) {
-    throw new Error('That URL is not an image (' + mimeType + ').');
+/* 使用者输入造成的错误，标记成 400 —— 回 500 会让人以为是服务器坏了 */
+function badRequest(message) {
+  const err = new Error(message);
+  err.status = 400;
+  return err;
+}
+
+/* 来路 1：浏览器上传 */
+function validateUpload(file) {
+  const mimeType = String(file.mimeType || '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+
+  if (!ALLOWED_MIME.test(mimeType)) {
+    throw badRequest('Only PDF and image files are supported (got: ' + (mimeType || 'unknown') + ').');
+  }
+
+  const bytes = Buffer.byteLength(String(file.data || ''), 'base64');
+  if (!bytes) throw badRequest('That file came through empty.');
+  if (bytes > MAX_UPLOAD_BYTES) {
+    throw badRequest(
+      'That file is ' + mb(bytes) + 'MB. Direct upload tops out at ' + mb(MAX_UPLOAD_BYTES) +
+        'MB — host it somewhere and paste the URL instead.'
+    );
+  }
+
+  return { mime_type: mimeType, data: file.data };
+}
+
+/* 来路 2：服务器抓网址 */
+async function fetchAsInlineData(url) {
+  let res;
+  try {
+    res = await fetch(url, { redirect: 'follow' });
+  } catch (err) {
+    throw badRequest('Could not reach that URL.');
+  }
+  if (!res.ok) throw badRequest('Could not download that file (HTTP ' + res.status + ').');
+
+  const mimeType = (res.headers.get('content-type') || '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+
+  if (!ALLOWED_MIME.test(mimeType)) {
+    throw badRequest('That URL is not a PDF or an image (got: ' + (mimeType || 'unknown') + ').');
   }
 
   const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.byteLength > MAX_IMAGE_BYTES) {
-    throw new Error('That image is larger than 5MB. Use a smaller one.');
+  if (buf.byteLength > MAX_FETCH_BYTES) {
+    throw badRequest('That file is ' + mb(buf.byteLength) + 'MB, over the ' + mb(MAX_FETCH_BYTES) + 'MB limit.');
   }
 
   return { mime_type: mimeType, data: buf.toString('base64') };
@@ -115,12 +179,14 @@ async function fetchImageAsInlineData(url) {
 /* --------------------------------------------------------------------------
  * Provider: Gemini
  * ----------------------------------------------------------------------- */
-async function callGemini(prompt, photoUrl) {
+async function callGemini(prompt, attachment) {
   const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
   const parts = [{ text: prompt }];
 
-  if (photoUrl) {
-    parts.push({ inline_data: await fetchImageAsInlineData(photoUrl) });
+  /* Gemini 原生看得懂 PDF —— 文字、表格、版面都读得到，
+     不需要我们先把它转成图片或抽文字。 */
+  if (attachment) {
+    parts.push({ inline_data: attachment });
   }
 
   const endpoint =
@@ -164,12 +230,22 @@ async function callGemini(prompt, photoUrl) {
 /* --------------------------------------------------------------------------
  * Provider: OpenAI
  * ----------------------------------------------------------------------- */
-async function callOpenAI(prompt, photoUrl) {
+async function callOpenAI(prompt, attachment) {
   const model = process.env.OPENAI_MODEL || 'gpt-4o';
-  const content = photoUrl
+
+  /* chat/completions 的 image_url 只吃图片，PDF 要走另一套 API。
+     与其悄悄忽略附件、让使用者以为读进去了，不如直说。 */
+  if (attachment && attachment.mime_type === 'application/pdf') {
+    throw new Error('PDF reading needs Gemini. Set AI_PROVIDER=gemini in Vercel, or paste the text instead.');
+  }
+
+  const content = attachment
     ? [
         { type: 'text', text: prompt },
-        { type: 'image_url', image_url: { url: photoUrl } },
+        {
+          type: 'image_url',
+          image_url: { url: 'data:' + attachment.mime_type + ';base64,' + attachment.data },
+        },
       ]
     : [{ type: 'text', text: prompt }];
 
@@ -295,17 +371,26 @@ module.exports = async function handler(req, res) {
   const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
   const rawText = (body.rawText || '').trim();
   const photoUrl = (body.photoUrl || '').trim();
+  const upload = body.file && body.file.data ? body.file : null;
 
-  if (!rawText && !photoUrl) {
+  if (!rawText && !photoUrl && !upload) {
     return res.status(400).json({ error: 'Nothing to analyse.' });
   }
 
   try {
-    const prompt = buildPrompt(rawText);
+    /* 上传的档案优先于贴上的网址 —— 两个都给的话以档案为准 */
+    let attachment = null;
+    if (upload) {
+      attachment = validateUpload(upload);
+    } else if (photoUrl) {
+      attachment = await fetchAsInlineData(photoUrl);
+    }
+
+    const prompt = buildPrompt(rawText, !!attachment);
     const raw =
       provider === 'gemini'
-        ? await callGemini(prompt, photoUrl)
-        : await callOpenAI(prompt, photoUrl);
+        ? await callGemini(prompt, attachment)
+        : await callOpenAI(prompt, attachment);
 
     /* 保险起见：模型偶尔还是会用 markdown 代码围栏把 JSON 包起来，
        这里只取第一个 { 到最后一个 } 之间的内容 */
@@ -321,7 +406,13 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json(normalise(parsed));
   } catch (err) {
-    console.error('ai-extract failed:', err);
-    return res.status(500).json({ error: err.message || 'Extraction failed.' });
+    const status = err.status || 500;
+    /* 400 是使用者给错东西，不是服务器坏了 —— 不用整串 stack 污染日志 */
+    if (status === 400) {
+      console.warn('ai-extract rejected input:', err.message);
+    } else {
+      console.error('ai-extract failed:', err);
+    }
+    return res.status(status).json({ error: err.message || 'Extraction failed.' });
   }
 };
