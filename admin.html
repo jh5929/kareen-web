@@ -299,8 +299,6 @@
         const supabaseKey = 'sb_publishable_GnK_xyRsCtIO7vtE9k-zPw_eSs4Erd0';
         const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
         
-        // OpenAI API Key
-        const OPENAI_API_KEY = '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';
 
         let allProperties = [];
         let confirmActionCallback = null;
@@ -334,79 +332,25 @@
             parseBtn.innerText = '🤖 AI is analyzing...';
             parseBtn.disabled = true;
 
-            // Highly strict prompt to ensure exact matching and prevent JSON crashes
-            const prompt = `
-            You are a top-tier Malaysian real estate assistant. Extract property details from the provided text and output strictly in JSON format.
-            If information is missing, leave it as an empty string "". 
-            Do not use markdown formatting like \`\`\`json in your response, return ONLY the raw JSON object.
-            
-            Strict value rules for dropdowns:
-            - "property_type": MUST BE EXACTLY "Residential", "Commercial", or "Land". Defaults to "Residential".
-            - "tenure": MUST BE EXACTLY "Freehold" or "Leasehold".
-            - "status": MUST BE EXACTLY "Launching Soon", "Ready 2025", or "Completed". Defaults to "Launching Soon".
-            - "price": MUST be a pure number without RM or commas (e.g., 550000). If not found, use 0.
-
-            Required JSON keys:
-            {
-              "title": "Property Name",
-              "location": "Area or City",
-              "price": 500000,
-              "property_type": "Residential",
-              "tenure": "Freehold",
-              "status": "Launching Soon",
-              "bedrooms": "e.g., 3 Beds",
-              "carparks": "e.g., 2 Lots",
-              "size_sqft": "e.g., 1000",
-              "facilities": "e.g., Pool, Gym, Security",
-              "property_highlight": "1 short sentence of the main selling point",
-              "description": "Full text description",
-              "nearby_amenities": {
-                "transportation": ["LRT X"],
-                "shopping": ["Mall Y"]
-              }
-            }
-            
-            Text to analyze: ${rawText}
-            `;
-
-            const requestBody = {
-                model: "gpt-4o",
-                response_format: { type: "json_object" },
-                messages: [
-                    {
-                        role: "user",
-                        content: photoUrl ? [
-                            { type: "text", text: prompt },
-                            { type: "image_url", image_url: { url: photoUrl } }
-                        ] : [
-                            { type: "text", text: prompt }
-                        ]
-                    }
-                ]
-            };
-
             try {
-                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                // AI 的 key 只存在于服务器（Vercel 环境变量），这个页面看不到也拿不到。
+                // 附上目前登入的 Supabase session，让 /api/ai-extract 能确认是 admin 在调用。
+                const { data: { session } } = await supabaseClient.auth.getSession();
+                if (!session) throw new Error('Session expired. Please log in again.');
+
+                const response = await fetch('/api/ai-extract', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${OPENAI_API_KEY}`
+                        'Authorization': `Bearer ${session.access_token}`
                     },
-                    body: JSON.stringify(requestBody)
+                    body: JSON.stringify({ rawText, photoUrl })
                 });
 
+                const aiResult = await response.json();
                 if (!response.ok) {
-                    const errData = await response.json();
-                    throw new Error(errData.error?.message || `API Error: ${response.status}`);
+                    throw new Error(aiResult.error || `API Error: ${response.status}`);
                 }
-
-                const data = await response.json();
-                let aiResultText = data.choices[0].message.content;
-                
-                // Extra safety: Strip out accidental markdown block syntax if GPT goes rogue
-                aiResultText = aiResultText.replace(/```json/g, '').replace(/```/g, '').trim();
-                
-                const aiResult = JSON.parse(aiResultText);
 
                 // Auto-fill form
                 const fillField = (id, value) => { 
@@ -776,4 +720,4 @@
         }
     </script>
 </body>
-</html>
+</html>

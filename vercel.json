@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/ai-extract.js": {
+      "maxDuration": 60
+    }
+  }
+}
