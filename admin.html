@@ -317,7 +317,11 @@
                 <div class="table-panel">
                     <div class="table-header-bar">
                         <h3 style="margin: 0; color: var(--navy);">Active Portfolio</h3>
-                        <button class="btn btn-outline" onclick="fetchPropertiesData()">Refresh Assets</button>
+                        <div style="display: flex; gap: 10px; align-items: center; flex: 1; justify-content: flex-end; min-width: 240px;">
+                            <input type="search" id="propSearch" oninput="renderProperties()" placeholder="Search title, location, status..."
+                                   style="flex: 1; max-width: 320px; min-height: 42px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--r-sm); font-family: inherit; font-size: 16px; background: #f8fafc;">
+                            <button class="btn btn-outline" onclick="fetchPropertiesData()">Refresh</button>
+                        </div>
                     </div>
                     <div class="table-scroll">
                         <table class="crm-table">
@@ -804,10 +808,25 @@
             try {
                 let { data, error } = await supabaseClient.from('properties').select('*').order('created_at', { ascending: false });
                 if (error) throw error;
-                allProperties = data;
+                allProperties = data || [];
+                renderProperties();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        // 搜索只是换个筛选条件重画，不用再打一次资料库
+        function renderProperties() {
+            try {
+                const term = (document.getElementById('propSearch').value || '').trim().toLowerCase();
+                const data = !term ? allProperties : allProperties.filter(p =>
+                    [p.title, p.location, p.status, p.property_type, p.tenure]
+                        .some(v => String(v || '').toLowerCase().includes(term))
+                );
+
                 const tbody = document.getElementById('propertiesTableBody');
                 const cards = document.getElementById('propertiesCardList');
-                const emptyMsg = 'No properties listed in database.';
+                const emptyMsg = term
+                    ? `No properties match "${escapeHtml(term)}".`
+                    : 'No properties listed in database.';
 
                 if (!data || data.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:40px;">${emptyMsg}</td></tr>`;

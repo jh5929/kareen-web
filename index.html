@@ -206,6 +206,51 @@
         .nav-icon { font-size: 22px; line-height: 1; }
         .nav-item.highlight { position: relative; top: -20px; }
         .nav-item.highlight .nav-icon { background: var(--bg-dark); color: var(--primary); width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 6px 15px rgba(11, 29, 58, 0.3); border: 4px solid #fff; }
+
+        /* ---------- 以下为后续新增：骨架屏、卡片规格列、图片计数、分享 ---------- */
+
+        /* 资料还在路上时先给形状，而不是一片空白 —— 感知速度差很多 */
+        .skeleton-row { display: flex; gap: 16px; padding: 4px 0; overflow: hidden; }
+        .skeleton-card { min-width: 280px; max-width: 280px; background: var(--card-bg); border-radius: 12px;
+                         border: 1px solid var(--border-color); overflow: hidden; flex-shrink: 0; }
+        .sk { background: linear-gradient(100deg, #ece7dd 30%, #f7f4ee 50%, #ece7dd 70%);
+              background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; }
+        @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+        .sk-img { height: 180px; width: 100%; }
+        .sk-line { height: 11px; border-radius: 6px; margin: 14px 16px 0; }
+        .sk-line.short { width: 45%; }
+        .sk-line.mid { width: 75%; }
+        .sk-line.price { width: 55%; height: 14px; margin-bottom: 18px; }
+
+        /* 参考做法：价格之后紧接关键规格，别让使用者为了房数面积点进详情 */
+        .card-specs { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; padding-top: 10px;
+                      border-top: 1px solid var(--border-color); font-size: 11px; font-weight: 600;
+                      color: var(--text-muted); }
+        .card-specs span { white-space: nowrap; }
+        .card-specs b { color: var(--bg-dark); font-weight: 700; }
+
+        /* 有几张图要让人看得见，否则不会想去点箭头 */
+        .img-count { position: absolute; bottom: 8px; right: 8px; z-index: 5; padding: 3px 9px;
+                     border-radius: 10px; background: rgba(0,0,0,0.55); color: #fff;
+                     font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+                     backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); pointer-events: none; }
+
+        /* 按下去缩一下，跟 admin 端同一套手感 */
+        .card { transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease; }
+        .card:active { transform: scale(0.975); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+
+        /* 分享做成图示钮，不跟 WhatsApp 这个主要 CTA 抢视觉 */
+        .btn-share { flex: 0 0 52px !important; background: var(--bg-light); color: var(--bg-dark);
+                     border: 1px solid var(--border-color) !important; font-size: 18px !important;
+                     transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .btn-share:active { transform: scale(0.9); }
+
+        .detail-action-bar button { transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .detail-action-bar button:active { transform: scale(0.96); }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+        }
     </style>
 </head>
 <body>
@@ -435,6 +480,7 @@
                 </div>
             </div>
             <div class="detail-action-bar">
+                <button class="btn-share" onclick="shareProperty()" aria-label="Share this property" title="Share">&#8593;</button>
                 <button class="btn-call" onclick="window.location.href='tel:+60126501692'">Direct Call</button>
                 <button class="btn-whatsapp" onclick="window.open('https://wa.me/60126501692', '_blank')">WhatsApp</button>
             </div>
@@ -527,6 +573,7 @@
         }
 
         async function executeCloudDataSync() {
+            showSkeletons();
             try {
                 let { data: databasePayload, error } = await supabaseClient.from('properties').select('*').order('created_at', { ascending: false });
                 if (error) throw error;
@@ -539,6 +586,7 @@
                 initMapbox();
                 applyAllFilters();
                 generateCalendar();
+                openFromHash();
             }
         }
 
@@ -618,11 +666,14 @@
             if (currentIndex >= imgList.length) currentIndex = 0; 
             if (currentIndex < 0) currentIndex = imgList.length - 1;
             
-            imgEl.style.opacity = 0; 
+            imgEl.style.opacity = 0;
             setTimeout(() => {
                 imgEl.src = imgList[currentIndex].trim();
                 imgEl.setAttribute('data-current', currentIndex);
-                imgEl.style.opacity = 1; 
+                imgEl.style.opacity = 1;
+
+                const counter = imgEl.parentElement && imgEl.parentElement.querySelector('.img-count');
+                if (counter) counter.innerText = (currentIndex + 1) + ' / ' + imgList.length;
             }, 150);
         }
 
@@ -739,95 +790,127 @@
             updateScheduleDropdown();
         }
 
+        // index.html 原本把 title 直接插进 HTML。资料只有 admin 写得到，风险低，
+        // 但标题里只要有一个引号就会把 alt 属性打断、整张卡片跑版。
+        function esc(str) {
+            return str == null ? '' : String(str)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        const CARD_FALLBACK = 'https://placehold.co/600x400/0B1D3A/C8A96E?text=KAREEN+PREMIUM+ASSET';
+        const CARD_ERROR = 'https://placehold.co/600x400/0B1D3A/C8A96E?text=IMAGE+ERROR';
+
+        // 原本这段 markup 在两个地方各写一份，改动一边就会忘另一边。合并成一个。
+        function buildPropertyCard(asset, opts) {
+            opts = opts || {};
+            const price = parseInt(asset.price || 0);
+            const status = asset.status || 'Active Launched';
+
+            const tagStyle = opts.savedList
+                ? 'background: var(--success); color: #fff;'
+                : (status.includes('Completed')
+                    ? 'background: var(--success); color: #fff;'
+                    : 'background: rgba(11, 29, 58, 0.85); color: var(--primary);');
+            const tagText = opts.savedList ? 'Saved' : status;
+
+            const isSaved = savedListIds.includes(asset.id);
+            const isCompared = compareListIds.includes(asset.id);
+
+            const images = asset.image_url ? asset.image_url.split(',').map(s => s.trim()).filter(Boolean) : [];
+            const safeImage = images[0] || CARD_FALLBACK;
+            const galleryData = images.length ? images.join(',') : safeImage;
+
+            // 关键规格放在价格底下，让人不用点进去就能筛掉不合适的
+            const specs = [];
+            if (asset.bedrooms) specs.push('<span><b>' + esc(asset.bedrooms) + '</b></span>');
+            if (asset.size_sqft) {
+                // admin 那边是自由输入，资料里常常已经带了单位，
+                // 直接补一个就会变成「764 – 1,163 sqft sqft」
+                const size = String(asset.size_sqft).trim();
+                const withUnit = /sqs*.?s*ft|sqft/i.test(size) ? size : size + ' sqft';
+                specs.push('<span><b>' + esc(withUnit) + '</b></span>');
+            }
+            if (asset.tenure) specs.push('<span>' + esc(asset.tenure) + '</span>');
+
+            return `
+                <div class="card" onclick="openDetailView('${asset.id}')">
+                    <div class="card-img">
+                        <span class="tag" style="${tagStyle}">${esc(tagText)}</span>
+                        <div class="save-badge ${isSaved ? 'saved' : ''}" onclick="toggleSave(event, '${asset.id}')">${isSaved ? 'Saved' : 'Save'}</div>
+                        <div class="compare-badge ${isCompared ? 'selected' : ''}" onclick="toggleCompare(event, '${asset.id}')">${isCompared ? 'Compared' : '+ Compare'}</div>
+
+                        <button class="slider-arrow prev-arr" onclick="changeCardImage(event, this, -1)">&#10094;</button>
+                        <img class="main-card-img" src="${esc(safeImage)}" data-images="${esc(galleryData)}" data-current="0"
+                             alt="${esc(asset.title)}" loading="lazy" decoding="async"
+                             onerror="this.onerror=null;this.src='${CARD_ERROR}'">
+                        <button class="slider-arrow next-arr" onclick="changeCardImage(event, this, 1)">&#10095;</button>
+                        ${images.length > 1 ? `<div class="img-count">1 / ${images.length}</div>` : ''}
+                    </div>
+                    <div class="card-body">
+                        <div class="card-area">${esc(asset.location || 'Kuala Lumpur')}</div>
+                        <h3 class="card-title">${esc(asset.title)}</h3>
+                        <p class="card-price">From RM ${price.toLocaleString()}</p>
+                        ${specs.length ? `<div class="card-specs">${specs.join('')}</div>` : ''}
+                    </div>
+                </div>`;
+        }
+
+        function skeletonCards(n) {
+            let html = '';
+            for (let i = 0; i < n; i++) {
+                html += `<div class="skeleton-card">
+                            <div class="sk sk-img"></div>
+                            <div class="sk sk-line short"></div>
+                            <div class="sk sk-line mid"></div>
+                            <div class="sk sk-line price"></div>
+                         </div>`;
+            }
+            return `<div class="skeleton-row">${html}</div>`;
+        }
+
+        function showSkeletons() {
+            ['completedList', 'hotList'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = skeletonCards(3);
+            });
+        }
+
         function renderActiveCardsToDOM(records) {
             const completedList = document.getElementById('completedList');
             const hotList = document.getElementById('hotList');
-            completedList.innerHTML = '';
-            hotList.innerHTML = '';
 
-            if(globalPropertiesRegistry.length === 0) {
+            if (globalPropertiesRegistry.length === 0) {
                 completedList.innerHTML = '<div class="empty-state-msg">No completed projects available yet.</div>';
                 hotList.innerHTML = '<div class="empty-state-msg">No upcoming projects available yet.</div>';
                 return;
             }
 
+            // 先拼字串再一次写入。原本在回圈里 innerHTML += 会让浏览器每加一张卡就重解析整串。
+            let completedHtml = '', hotHtml = '';
             records.forEach(asset => {
                 const status = asset.status || 'Active Launched';
-                const price = parseInt(asset.price || 0);
-                const tagStyle = status.includes('Completed') ? 'background: var(--success); color: #fff;' : 'background: rgba(11, 29, 58, 0.85); color: var(--primary);';
-                const isCompared = compareListIds.includes(asset.id) ? 'selected' : '';
-                const compareIcon = compareListIds.includes(asset.id) ? 'Compared' : '+ Compare';
-                const isSaved = savedListIds.includes(asset.id) ? 'saved' : '';
-                const saveIcon = savedListIds.includes(asset.id) ? 'Saved' : 'Save';
-                
-                const safeImage = asset.image_url ? asset.image_url.split(',')[0].trim() : 'https://placehold.co/600x400/0B1D3A/C8A96E?text=KAREEN+PREMIUM+ASSET';
-                const galleryData = asset.image_url ? asset.image_url : safeImage;
-
-                let cardHTML = `
-                    <div class="card" onclick="openDetailView('${asset.id}')">
-                        <div class="card-img">
-                            <span class="tag" style="${tagStyle}">${status}</span>
-                            <div class="save-badge ${isSaved}" onclick="toggleSave(event, '${asset.id}')">${saveIcon}</div>
-                            <div class="compare-badge ${isCompared}" onclick="toggleCompare(event, '${asset.id}')">${compareIcon}</div>
-                            
-                            <button class="slider-arrow prev-arr" onclick="changeCardImage(event, this, -1)">❮</button>
-                            <img class="main-card-img" src="${safeImage}" data-images="${galleryData}" data-current="0" alt="${asset.title}" onerror="this.src='https://placehold.co/600x400/0B1D3A/C8A96E?text=IMAGE+ERROR'">
-                            <button class="slider-arrow next-arr" onclick="changeCardImage(event, this, 1)">❯</button>
-                        </div>
-                        <div class="card-body">
-                            <div class="card-area">${asset.location || 'Kuala Lumpur'}</div>
-                            <h3 class="card-title">${asset.title}</h3>
-                            <p class="card-price">From RM ${price.toLocaleString()}</p>
-                        </div>
-                    </div>
-                `;
-                if (status.includes('Completed') || status.includes('Ready')) { completedList.innerHTML += cardHTML; } 
-                else { hotList.innerHTML += cardHTML; }
+                const card = buildPropertyCard(asset);
+                if (status.includes('Completed') || status.includes('Ready')) completedHtml += card;
+                else hotHtml += card;
             });
 
-            if(completedList.innerHTML === '') completedList.innerHTML = '<div class="empty-state-msg">No properties match this filter.</div>';
-            if(hotList.innerHTML === '') hotList.innerHTML = '<div class="empty-state-msg">No properties match this filter.</div>';
+            completedList.innerHTML = completedHtml || '<div class="empty-state-msg">No properties match this filter.</div>';
+            hotList.innerHTML = hotHtml || '<div class="empty-state-msg">No properties match this filter.</div>';
         }
 
         function renderSavedCardsToDOM() {
             const savedContainer = document.getElementById('savedList');
-            if(!savedContainer) return;
-            savedContainer.innerHTML = '';
-            if(savedListIds.length === 0) {
+            if (!savedContainer) return;
+
+            if (savedListIds.length === 0) {
                 savedContainer.innerHTML = '<div class="empty-state-msg">Click \'Save\' on any property to build your shortlist.</div>';
                 return;
             }
 
             const savedProps = savedListIds.map(id => globalPropertiesRegistry.find(p => p.id === id)).filter(Boolean);
-            savedProps.forEach(asset => {
-                const price = parseInt(asset.price || 0);
-                const isCompared = compareListIds.includes(asset.id) ? 'selected' : '';
-                const compareIcon = compareListIds.includes(asset.id) ? 'Compared' : '+ Compare';
-                
-                const safeImage = asset.image_url ? asset.image_url.split(',')[0].trim() : 'https://placehold.co/600x400/0B1D3A/C8A96E?text=KAREEN+PREMIUM+ASSET';
-                const galleryData = asset.image_url ? asset.image_url : safeImage;
-
-                savedContainer.innerHTML += `
-                    <div class="card" onclick="openDetailView('${asset.id}')">
-                        <div class="card-img">
-                            <span class="tag" style="background:var(--success);color:#fff;">Saved</span>
-                            <div class="save-badge saved" onclick="toggleSave(event, '${asset.id}')">Saved</div>
-                            <div class="compare-badge ${isCompared}" onclick="toggleCompare(event, '${asset.id}')">${compareIcon}</div>
-                            
-                            <button class="slider-arrow prev-arr" onclick="changeCardImage(event, this, -1)">❮</button>
-                            <img class="main-card-img" src="${safeImage}" data-images="${galleryData}" data-current="0" alt="${asset.title}" onerror="this.src='https://placehold.co/600x400/0B1D3A/C8A96E?text=IMAGE+ERROR'">
-                            <button class="slider-arrow next-arr" onclick="changeCardImage(event, this, 1)">❯</button>
-                        </div>
-                        <div class="card-body">
-                            <div class="card-area">${asset.location || 'Kuala Lumpur'}</div>
-                            <h3 class="card-title">${asset.title}</h3>
-                            <p class="card-price">From RM ${price.toLocaleString()}</p>
-                        </div>
-                    </div>
-                `;
-            });
+            savedContainer.innerHTML = savedProps.map(asset => buildPropertyCard(asset, { savedList: true })).join('');
         }
-
         function syncSearches(val) { document.getElementById('searchInput').value = val; applyAllFilters(); }
 
         function updatePriceSlider(val) {
@@ -1034,7 +1117,8 @@
             if(viewId === 'schedule') updateScheduleDropdown();
         }
 
-        function openDetailView(assetId) {
+        // skipHistory：由返回/前进事件触发时用，避免又往纪录里塞一笔
+        function openDetailView(assetId, skipHistory) {
             const t = globalPropertiesRegistry.find(p => p.id === assetId);
             if(t) {
                 document.getElementById('detail-tag').innerText = t.status || 'Details';
@@ -1112,11 +1196,66 @@
 
             document.getElementById('detailView').style.display = 'block';
             setTimeout(() => document.getElementById('detailView').classList.add('active'), 10);
+
+            // 让每套房源有自己的网址：分享出去别人点开就是这一套，
+            // 而且手机的返回键会退出详情页而不是整个离开网站。
+            if (!skipHistory) {
+                history.pushState({ propertyId: assetId }, '', '#property/' + assetId);
+            }
         }
 
         function closeDetailView() {
+            // 交给 history 处理，这样这颗按钮和系统返回键走同一条路径，
+            // 不会出现「关掉了但网址还停在某套房源」的错位状态。
+            if (history.state && history.state.propertyId) { history.back(); return; }
+            hideDetailView();
+        }
+
+        function hideDetailView() {
             document.getElementById('detailView').classList.remove('active');
             setTimeout(() => document.getElementById('detailView').style.display = 'none', 300);
+        }
+
+        window.addEventListener('popstate', (e) => {
+            if (e.state && e.state.propertyId) openDetailView(e.state.propertyId, true);
+            else hideDetailView();
+        });
+
+        // 有人带着 #property/xxx 的网址进来时，资料载完直接开那一套
+        function openFromHash() {
+            const m = location.hash.match(/^#property\/(.+)$/);
+            if (!m) return;
+            const asset = globalPropertiesRegistry.find(p => String(p.id) === m[1]);
+            if (!asset) return;
+
+            // 关键：让「带 hash 进站」这一笔纪录本身也带上 state。
+            // 少了这行，之后任何 popstate 都会在这笔纪录上读到 null，
+            // 反而把刚开好的详情页关掉。
+            history.replaceState({ propertyId: asset.id }, '', location.hash);
+            openDetailView(asset.id, true);
+        }
+
+        async function shareProperty() {
+            const title = document.getElementById('detail-title').innerText;
+            const price = document.getElementById('detail-price').innerText;
+            const url = location.href;
+
+            // 手机上直接叫出系统分享面板 —— 客户多半是要转发到 WhatsApp
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title: title, text: title + ' — ' + price, url: url });
+                    return;
+                } catch (err) {
+                    if (err && err.name === 'AbortError') return;  // 使用者自己取消，不是错误
+                }
+            }
+
+            try {
+                await navigator.clipboard.writeText(url);
+                showToast('Link copied to clipboard');
+            } catch (err) {
+                showToast('Could not copy the link');
+            }
         }
 
         function switchInnerSearch(type, btn) {
