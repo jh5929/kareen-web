@@ -123,6 +123,24 @@
                          vertical-align: -1px; }
         .map-note .dot.approx { background: transparent; border: 2px dashed #C8A96E; }
         .popup-approx { font-size: 10px; color: #C8A96E; font-style: italic; margin-bottom: 8px; }
+
+        /* ---------- 户型表 + 平面图 ---------- */
+        .layout-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 18px; }
+        .layout-table th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+                           color: var(--text-muted); font-weight: 700; padding: 0 10px 8px 0;
+                           border-bottom: 1px solid var(--border-color); }
+        .layout-table th:last-child, .layout-table td:last-child { text-align: right; padding-right: 0; }
+        .layout-table td { padding: 11px 10px 11px 0; border-bottom: 1px solid var(--border-color); }
+        .layout-table tr:last-child td { border-bottom: none; }
+        .layout-type { font-weight: 700; color: var(--bg-dark); }
+        .layout-price { font-weight: 700; color: var(--primary); white-space: nowrap; }
+
+        .plan-strip { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory;
+                      -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+        .plan-strip img { width: 78%; flex-shrink: 0; scroll-snap-align: start; border-radius: 12px;
+                          border: 1px solid var(--border-color); background: var(--bg-light);
+                          cursor: zoom-in; object-fit: contain; }
+        .plan-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
         .mapboxgl-popup-content { background-color: #0B1D3A; color: #F8F9FA; border-radius: 8px; padding: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); border: 1px solid #C8A96E; min-width: 200px; }
         .mapboxgl-popup-close-button { color: #C8A96E; font-size: 16px; right: 8px; top: 5px; }
         .popup-title { font-weight: bold; font-size: 16px; margin-bottom: 5px; color: #C8A96E;}
@@ -482,11 +500,10 @@
                     <iframe id="detail-vr" src="" allowfullscreen allow="xr-spatial-tracking"></iframe>
                 </div>
             </div>
-            <div class="detail-section">
-                <h2 class="section-title">Floor Layout Blueprint</h2>
-                <div class="floorplan-img">
-                    <img src="https://placehold.co/800x600/F9F7F2/0B1D3A?text=Floorplan+Schematics" alt="Structural Schematics">
-                </div>
+            <div class="detail-section" id="detail-layouts-section">
+                <h2 class="section-title">Floor Layouts</h2>
+                <div id="detail-layout-table"></div>
+                <div id="detail-plan-strip"></div>
             </div>
             <div class="detail-section" style="background: var(--bg-light);">
                 <h2 class="section-title">Mortgage Engine</h2>
@@ -1270,16 +1287,21 @@
             slots.forEach(s => { s.classList.remove('selected', 'disabled'); });
 
             try {
-                let { data, error } = await supabaseClient.from('appointments').select('time_slot').eq('booking_date', dateString);
-                if(!error && data) {
-                    const bookedTimes = data.map(d => d.time_slot);
-                    slots.forEach(s => {
-                        if(bookedTimes.includes(s.getAttribute('data-time'))) {
-                            s.classList.add('disabled');
-                        }
-                    });
-                }
-            } catch (err) {}
+                // 以前这里直接 select appointments。但 RLS 只让 authenticated 读，
+                // 访客拿到的永远是空阵列 —— 于是所有时段都显示可预约，会被重复订走。
+                // booked_slots 这个函数只回传时段本身，姓名电话不出资料库。
+                const { data, error } = await supabaseClient.rpc('booked_slots', { p_date: dateString });
+                if (error) throw error;
+
+                const bookedTimes = (data || []).map(d => d.time_slot);
+                slots.forEach(s => {
+                    if (bookedTimes.includes(s.getAttribute('data-time'))) s.classList.add('disabled');
+                });
+            } catch (err) {
+                // 查不到就不要假装全部有空 —— 那正是原本的问题。
+                console.warn('Could not load booked slots:', err);
+                showToast('Could not check availability. Please confirm your slot with us on WhatsApp.');
+            }
         }
 
         function selectTimeSlot(slot) {
@@ -1311,8 +1333,17 @@
                         property_name: propertyName 
                     }
                 ]);
+                // 23505 = 资料库的唯一索引挡下重复。表示在你填表的这段时间里
+                // 有人订走了同一个时段 —— 这不是错误，是正常的竞争，要讲清楚。
+                if (error && error.code === '23505') {
+                    activeSlot.classList.remove('selected');
+                    activeSlot.classList.add('disabled');
+                    showToast('Sorry, that slot was just taken. Please pick another.');
+                    loadTimeSlots(currentBookingDate);
+                    return;
+                }
                 if(error) throw error;
-                
+
                 activeSlot.classList.remove('selected');
                 activeSlot.classList.add('disabled');
                 document.getElementById('clientName').value = "";
@@ -1354,6 +1385,8 @@
                 const safeImage = t.image_url ? t.image_url.split(',')[0].trim() : 'https://placehold.co/800x600/0B1D3A/C8A96E?text=KAREEN+PREMIUM+ASSET';
                 const galleryData = t.image_url ? t.image_url : safeImage;
                 
+                renderLayouts(t);
+
                 const detailImg = document.getElementById('detail-img');
                 detailImg.src = safeImage;
                 detailImg.setAttribute('data-images', galleryData);
@@ -1426,6 +1459,53 @@
             // 而且手机的返回键会退出详情页而不是整个离开网站。
             if (!skipHistory) {
                 history.pushState({ propertyId: assetId }, '', '#property/' + assetId);
+            }
+        }
+
+        // admin 的 Floor Plan Pricing 一直存得进资料库，但客户端从来没有显示过它，
+        // 所以三笔房源的 price_insights 都是空的 —— 填了没人看得到，自然没人填。
+        function renderLayouts(asset) {
+            const section = document.getElementById('detail-layouts-section');
+            const tableWrap = document.getElementById('detail-layout-table');
+            const stripWrap = document.getElementById('detail-plan-strip');
+
+            const rows = Array.isArray(asset.price_insights) ? asset.price_insights : [];
+            const plans = (asset.floorplan_url || '').split(',').map(s => s.trim()).filter(Boolean);
+
+            // 两样都没有就整个区块收起来，别留一个空标题在那里
+            if (!rows.length && !plans.length) { section.style.display = 'none'; return; }
+            section.style.display = 'block';
+
+            if (rows.length) {
+                const body = rows.map(r => {
+                    const price = r.price ? String(r.price).replace(/^RM\s*/i, '') : '';
+                    return `
+                        <tr>
+                            <td class="layout-type">${esc(r.type || '—')}</td>
+                            <td>${esc(r.layout || '')}</td>
+                            <td>${esc(r.size || '')}</td>
+                            <td class="layout-price">${price ? 'RM ' + esc(price) : '—'}</td>
+                        </tr>`;
+                }).join('');
+                tableWrap.innerHTML = `
+                    <table class="layout-table">
+                        <thead><tr><th>Type</th><th>Layout</th><th>Size</th><th>From</th></tr></thead>
+                        <tbody>${body}</tbody>
+                    </table>`;
+            } else {
+                tableWrap.innerHTML = '';
+            }
+
+            if (plans.length) {
+                stripWrap.innerHTML = `
+                    <div class="plan-strip">
+                        ${plans.map(u => `<img src="${esc(u)}" alt="Floor plan" loading="lazy" decoding="async"
+                                                onclick="window.open(this.src, '_blank')"
+                                                onerror="this.style.display='none'">`).join('')}
+                    </div>
+                    <div class="plan-hint">${plans.length > 1 ? 'Swipe to see all ' + plans.length + ' plans &middot; ' : ''}Tap a plan to open it full size</div>`;
+            } else {
+                stripWrap.innerHTML = '';
             }
         }
 
