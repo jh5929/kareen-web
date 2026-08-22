@@ -198,6 +198,31 @@
         .file-chip .fc-remove { flex-shrink: 0; width: 32px; height: 32px; border-radius: 16px; border: none; background: rgba(60,60,67,0.12); color: var(--text-dark); font-size: 16px; line-height: 1; cursor: pointer; transition: transform 0.4s var(--spring); }
         .file-chip .fc-remove:active { transform: scale(0.85); }
 
+        /* ---------- 媒体上传 ---------- */
+        .media-zone { display: flex; align-items: center; justify-content: center; gap: 8px;
+                      width: 100%; min-height: 60px; padding: 14px; border: 2px dashed rgba(11,29,58,0.25);
+                      border-radius: var(--r-md); background: #f8fafc; cursor: pointer;
+                      font-size: 14px; font-weight: 600; color: var(--navy); text-align: center;
+                      transition: transform 0.4s var(--spring), background 0.25s, border-color 0.25s; }
+        .media-zone:active { transform: scale(0.985); background: #eef2f7; }
+        .media-zone.dragover { background: rgba(200,169,110,0.14); border-color: var(--gold); }
+        .media-zone.busy { opacity: 0.6; pointer-events: none; }
+        .media-zone input[type="file"] { display: none; }
+
+        .thumb-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .thumb { position: relative; width: 76px; height: 76px; border-radius: var(--r-sm);
+                 overflow: hidden; border: 1px solid var(--border); background: #f8fafc; }
+        .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .thumb .kill { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px;
+                       border-radius: 11px; border: none; background: rgba(0,0,0,0.6); color: #fff;
+                       font-size: 13px; line-height: 1; cursor: pointer; padding: 0;
+                       transition: transform 0.35s var(--spring); }
+        .thumb .kill:active { transform: scale(0.85); }
+        .thumb .cover-tag { position: absolute; bottom: 0; left: 0; right: 0; text-align: center;
+                            font-size: 9px; font-weight: 700; letter-spacing: 0.4px; padding: 2px 0;
+                            background: rgba(11,29,58,0.85); color: var(--gold); }
+        .media-hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+
         /* ---------- 手机 ---------- */
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); box-shadow: 20px 0 60px rgba(0,0,0,0.25); }
@@ -436,16 +461,25 @@
                         </div>
 
                         <div class="form-group full">
-                            <label>Cover Image URL (Separate multiple images with commas ',')</label>
-                            <input type="url" id="propImage" placeholder="e.g. img1.jpg, img2.jpg" oninput="document.getElementById('imgPreview').src = this.value.split(',')[0].trim(); document.getElementById('imgPreview').style.display = 'block';">
-                            <img id="imgPreview" src="" style="margin-top: 10px; max-width: 100%; height: 200px; object-fit: cover; border-radius: 8px; display: none;" onerror="this.style.display='none'" onload="this.style.display='block'">
+                            <label>Property Photos</label>
+                            <label class="media-zone" id="photoZone">
+                                <span>📷 Take a photo or choose from your library</span>
+                                <input type="file" id="photoInput" accept="image/*" multiple onchange="handleMediaPick(this, 'propImage')">
+                            </label>
+                            <div class="thumb-grid" id="propImageThumbs"></div>
+                            <div class="media-hint">First photo is the cover. Drag is not needed — remove one and the next takes over.</div>
+                            <input type="text" id="propImage" placeholder="Or paste image URLs, separated by commas" oninput="renderThumbs('propImage')" style="margin-top: 10px;">
                         </div>
 
                         <div class="form-group full">
-                            <label>Floor Plan Image URLs (separate multiple with commas)</label>
-                            <input type="text" id="propFloorplan" placeholder="e.g. floorplan-A.jpg, floorplan-B.jpg" oninput="previewFloorplans()">
-                            <div id="floorplanPreview" style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;"></div>
-                            <small style="color: var(--text-muted); font-size: 11px;">Leave empty and the public page simply hides the floor plan section.</small>
+                            <label>Floor Plans</label>
+                            <label class="media-zone" id="planZone">
+                                <span>📐 Upload floor plan images</span>
+                                <input type="file" id="planInput" accept="image/*" multiple onchange="handleMediaPick(this, 'propFloorplan')">
+                            </label>
+                            <div class="thumb-grid" id="propFloorplanThumbs"></div>
+                            <div class="media-hint">Leave empty and the public page hides the floor plan section entirely.</div>
+                            <input type="text" id="propFloorplan" placeholder="Or paste floor plan URLs, separated by commas" oninput="renderThumbs('propFloorplan')" style="margin-top: 10px;">
                         </div>
 
                         <div class="form-group full"><label>3D VR URL (Optional)</label><input type="url" id="propVr" placeholder="https://..."></div>
@@ -922,14 +956,14 @@
             document.getElementById('aiRawText').value = '';
             document.getElementById('aiImageUrl').value = '';
             clearPickedFile();
-            document.getElementById('floorplanPreview').innerHTML = '';
+            renderThumbs('propImage');
+            renderThumbs('propFloorplan');
             const geoOut = document.getElementById('geoResult');
             geoOut.style.color = 'var(--text-muted)';
             geoOut.innerText = 'Without coordinates the public map can only show an approximate area for this listing.';
             document.getElementById('propId').value = '';
             document.getElementById('modalTitle').innerText = 'Add New Property';
             document.getElementById('insightsWrapper').innerHTML = '';
-            document.getElementById('imgPreview').style.display = 'none';
             openModal('propertyModal');
         }
         function closePropertyModal() { closeModal('propertyModal'); }
@@ -964,15 +998,11 @@
             document.getElementById('propParks').value = prop.carparks || '';
             document.getElementById('propImage').value = prop.image_url || '';
             document.getElementById('propFloorplan').value = prop.floorplan_url || '';
-            previewFloorplans();
+            renderThumbs('propImage');
+            renderThumbs('propFloorplan');
             document.getElementById('propVr').value = prop.vr_url || '';
             
-            if(prop.image_url) {
-                document.getElementById('imgPreview').src = prop.image_url.split(',')[0].trim();
-                document.getElementById('imgPreview').style.display = 'block';
-            } else {
-                document.getElementById('imgPreview').style.display = 'none';
-            }
+
             
             const wrapper = document.getElementById('insightsWrapper');
             wrapper.innerHTML = '';
@@ -1263,17 +1293,121 @@
             }
         }
 
-        function previewFloorplans() {
-            const wrap = document.getElementById('floorplanPreview');
-            const urls = (document.getElementById('propFloorplan').value || '')
-                .split(',').map(s => s.trim()).filter(Boolean);
+        const MEDIA_BUCKET = 'property-media';
+        const MEDIA_MAX_BYTES = 10 * 1024 * 1024;
 
-            wrap.innerHTML = urls.map(u =>
-                `<img src="${escapeHtml(u)}" alt="floor plan"
-                      style="width: 72px; height: 72px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); background: #f8fafc;"
-                      onerror="this.style.opacity=0.25">`
-            ).join('');
+        // 网址存在栏位里，缩图只是它的镜子 —— 单一来源，不另外存一份状态
+        function urlsOf(fieldId) {
+            return (document.getElementById(fieldId).value || '')
+                .split(',').map(s => s.trim()).filter(Boolean);
         }
+
+        function setUrls(fieldId, list) {
+            document.getElementById(fieldId).value = list.join(', ');
+            renderThumbs(fieldId);
+        }
+
+        function renderThumbs(fieldId) {
+            const grid = document.getElementById(fieldId + 'Thumbs');
+            if (!grid) return;
+            const urls = urlsOf(fieldId);
+
+            grid.innerHTML = urls.map((u, i) => `
+                <div class="thumb">
+                    <img src="${escapeHtml(u)}" alt="" onerror="this.style.opacity=0.25">
+                    ${i === 0 && fieldId === 'propImage' ? '<span class="cover-tag">COVER</span>' : ''}
+                    <button type="button" class="kill" onclick="removeMedia('${fieldId}', ${i})" aria-label="Remove">&times;</button>
+                </div>`).join('');
+        }
+
+        function removeMedia(fieldId, index) {
+            const urls = urlsOf(fieldId);
+            urls.splice(index, 1);
+            setUrls(fieldId, urls);
+        }
+
+        async function uploadToStorage(file) {
+            const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const key = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '.' + (ext || 'jpg');
+
+            const { error } = await supabaseClient.storage
+                .from(MEDIA_BUCKET)
+                .upload(key, file, { cacheControl: '31536000', upsert: false });
+            if (error) throw error;
+
+            const { data } = supabaseClient.storage.from(MEDIA_BUCKET).getPublicUrl(key);
+            return data.publicUrl;
+        }
+
+        async function handleMediaPick(input, fieldId) {
+            const files = Array.from(input.files || []);
+            input.value = '';   // 清掉，否则选同一张图第二次不会触发 change
+            if (!files.length) return;
+
+            const zone = input.closest('.media-zone');
+            const label = zone.querySelector('span');
+            const original = label.innerText;
+            zone.classList.add('busy');
+
+            const added = [];
+            let failed = 0;
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                label.innerText = `Uploading ${i + 1} of ${files.length}...`;
+
+                if (file.size > MEDIA_MAX_BYTES) {
+                    showToast(`${file.name} is over 10MB and was skipped.`, 'error');
+                    failed++;
+                    continue;
+                }
+
+                try {
+                    added.push(await uploadToStorage(file));
+                } catch (err) {
+                    console.error('Upload failed:', err);
+                    // RLS 挡下来通常代表 session 过期了。原话是资料库术语，
+                    // 直接丢给使用者只会让人困惑。
+                    const rls = /row-level security|violates row/i.test(err.message || '');
+                    showToast(rls
+                        ? 'Upload refused — your session may have expired. Log out and back in.'
+                        : `Could not upload ${file.name}: ${err.message || 'unknown error'}`,
+                        'error');
+                    failed++;
+                }
+            }
+
+            zone.classList.remove('busy');
+            label.innerText = original;
+
+            if (added.length) {
+                setUrls(fieldId, urlsOf(fieldId).concat(added));
+                showToast(`${added.length} image${added.length > 1 ? 's' : ''} uploaded`, 'success');
+            } else if (!failed) {
+                showToast('Nothing was uploaded.', 'error');
+            }
+        }
+
+        // 桌面上把档案拖进来
+        ['photoZone', 'planZone'].forEach(function (zoneId) {
+            const zone = document.getElementById(zoneId);
+            if (!zone) return;
+            const field = zoneId === 'photoZone' ? 'propImage' : 'propFloorplan';
+            const stop = e => { e.preventDefault(); e.stopPropagation(); };
+
+            ['dragenter', 'dragover'].forEach(ev => zone.addEventListener(ev, e => { stop(e); zone.classList.add('dragover'); }));
+            ['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, e => { stop(e); zone.classList.remove('dragover'); }));
+
+            zone.addEventListener('drop', e => {
+                const dropped = Array.from((e.dataTransfer && e.dataTransfer.files) || []);
+                if (!dropped.length) return;
+                const dt = new DataTransfer();
+                dropped.forEach(f => dt.items.add(f));
+                const input = zone.querySelector('input[type="file"]');
+                input.files = dt.files;
+                handleMediaPick(input, field);
+            });
+        });
 
         function escapeHtml(str) { return str ? String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") : ""; }
         function formatPhoneForWhatsApp(phone) { 
