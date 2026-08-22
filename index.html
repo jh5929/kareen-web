@@ -470,6 +470,7 @@
                 <div class="details-grid">
                     <div class="details-item"><span>Property Classification</span><span id="detail-type">Residential</span></div>
                     <div class="details-item"><span>Bedrooms Scheme</span><span id="detail-beds">2 - 3 Beds</span></div>
+                    <div class="details-item"><span>Bathrooms</span><span id="detail-baths">—</span></div>
                     <div class="details-item"><span>Tenure Framework</span><span id="detail-tenure">Freehold</span></div>
                     <div class="details-item"><span>Size / Capacity</span><span id="detail-size">Low Density</span></div>
                 </div>
@@ -1066,6 +1067,7 @@
             // 关键规格放在价格底下，让人不用点进去就能筛掉不合适的
             const specs = [];
             if (asset.bedrooms) specs.push('<span><b>' + esc(asset.bedrooms) + '</b></span>');
+            if (asset.bathrooms) specs.push('<span><b>' + esc(asset.bathrooms) + '</b></span>');
             if (asset.size_sqft) {
                 // admin 那边是自由输入，资料里常常已经带了单位，
                 // 直接补一个就会变成「764 – 1,163 sqft sqft」
@@ -1215,6 +1217,7 @@
                 { label: 'Property Type', key: 'property_type' },
                 { label: 'Tenure', key: 'tenure', default: 'Freehold' },
                 { label: 'Bedrooms', key: 'bedrooms' },
+                { label: 'Bathrooms', key: 'bathrooms' },
                 { label: 'Size (Sqft)', key: 'size_sqft', default: 'TBA' },
                 { label: 'Carparks', key: 'carparks', default: '1 Lot' }
             ];
@@ -1394,6 +1397,7 @@
                 
                 document.getElementById('detail-type').innerText = t.property_type || 'Residential';
                 document.getElementById('detail-beds').innerText = t.bedrooms || '2 - 3 Beds';
+                document.getElementById('detail-baths').innerText = t.bathrooms || '—';
                 document.getElementById('detail-tenure').innerText = t.tenure || 'Freehold';
                 document.getElementById('detail-size').innerText = t.size_sqft || 'TBA sqft';
 

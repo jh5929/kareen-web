@@ -79,6 +79,15 @@ function buildPrompt(rawText, hasAttachment) {
     '- tenure: MUST BE EXACTLY "Freehold" or "Leasehold".',
     '- status: MUST BE EXACTLY "Launching Soon", "Ready 2025", or "Completed". Defaults to "Launching Soon".',
     '- price: MUST be a pure number without RM or commas (e.g., 550000). If not found, use 0.',
+    '- bedrooms / bathrooms: keep them separate. Never put bath counts inside the bedrooms field.',
+    '',
+    'floor_plans: one entry per unit type in the price list or floor plan schedule.',
+    'Leave the array empty if the material does not break the project down by type.',
+    '',
+    'latitude / longitude: ONLY fill these if you actually recognise this specific',
+    'named development and know where it stands. A guess is worse than nothing here —',
+    'the public site draws a map pin from it. If you are not sure, use null. Never',
+    'infer them from the town name alone; the site geocodes the town itself.',
     '',
     'Required JSON keys:',
     '{',
@@ -89,11 +98,17 @@ function buildPrompt(rawText, hasAttachment) {
     '  "tenure": "Freehold",',
     '  "status": "Launching Soon",',
     '  "bedrooms": "e.g., 3 Beds",',
+    '  "bathrooms": "e.g., 2 Baths",',
     '  "carparks": "e.g., 2 Lots",',
     '  "size_sqft": "e.g., 1000",',
     '  "facilities": "e.g., Pool, Gym, Security",',
     '  "property_highlight": "1 short sentence of the main selling point",',
     '  "description": "Full text description",',
+    '  "latitude": 3.0567,',
+    '  "longitude": 101.5855,',
+    '  "floor_plans": [',
+    '    { "type": "Type A", "layout": "2R2B", "size": "690 sqft", "price": "663,120" }',
+    '  ],',
     '  "nearby_amenities": {',
     '    "transportation": ["LRT X"],',
     '    "shopping": ["Mall Y"]',
@@ -200,7 +215,15 @@ async function callGemini(prompt, attachment) {
     },
     body: JSON.stringify({
       contents: [{ role: 'user', parts: parts }],
-      generationConfig: { responseMimeType: 'application/json', temperature: 0.2 },
+      generationConfig: {
+        responseMimeType: 'application/json',
+        temperature: 0.2,
+        /* 这是把栏位从文件里挑出来，不是需要推理的题目。
+           实测同一份价目表：放任思考 131 秒、thinkingBudget 0 只要 2.1 秒，
+           抽出来的五个户型一模一样。Vercel 的 function 上限是 60 秒，
+           不关掉思考这个 endpoint 会直接超时。 */
+        thinkingConfig: { thinkingBudget: 0 },
+      },
     }),
   });
 
@@ -289,12 +312,65 @@ const TEXT_FIELDS = [
   'tenure',
   'status',
   'bedrooms',
+  'bathrooms',
   'carparks',
   'size_sqft',
   'facilities',
   'property_highlight',
   'description',
 ];
+
+/* 马来西亚大致范围。模型偶尔会把座标搬到别的国家，甚至south/east 弄反，
+   落在框外的一律丢掉 —— 宁可没有，也不要在地图上钉错地方。 */
+const MY_BOUNDS = { latMin: 0.8, latMax: 7.5, lngMin: 99.5, lngMax: 119.5 };
+
+function cleanCoords(out) {
+  const lat = parseFloat(out.latitude);
+  const lng = parseFloat(out.longitude);
+
+  if (!isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) {
+    delete out.latitude;
+    delete out.longitude;
+    return;
+  }
+
+  const inside =
+    lat >= MY_BOUNDS.latMin && lat <= MY_BOUNDS.latMax &&
+    lng >= MY_BOUNDS.lngMin && lng <= MY_BOUNDS.lngMax;
+
+  if (!inside) {
+    console.warn('Discarded out-of-country coordinates from the model:', lat, lng);
+    delete out.latitude;
+    delete out.longitude;
+    return;
+  }
+
+  out.latitude = lat;
+  out.longitude = lng;
+}
+
+/* 户型表：只留有内容的列，栏位一律压成字串 */
+function cleanFloorPlans(out) {
+  if (!Array.isArray(out.floor_plans)) {
+    delete out.floor_plans;
+    return;
+  }
+
+  out.floor_plans = out.floor_plans
+    .map(function (row) {
+      if (!row || typeof row !== 'object') return null;
+      return {
+        type: toText(row.type, ' '),
+        layout: toText(row.layout, ' '),
+        size: toText(row.size, ' '),
+        /* admin 那边的存档规则是 type 与 price 都要有，价格统一去掉 RM 前缀 */
+        price: toText(row.price, ' ').replace(/^RM\s*/i, ''),
+      };
+    })
+    .filter(function (row) {
+      return row && row.type && row.price;
+    });
+}
 
 function toText(value, joiner) {
   if (value === null || value === undefined) return '';
@@ -331,6 +407,9 @@ function normalise(result) {
   if (out.nearby_amenities && typeof out.nearby_amenities !== 'object') {
     delete out.nearby_amenities;
   }
+
+  cleanCoords(out);
+  cleanFloorPlans(out);
 
   return out;
 }

@@ -414,6 +414,7 @@
                         <div class="form-group"><label>Tenure</label><select id="propTenure"><option value="Freehold">Freehold</option><option value="Leasehold">Leasehold</option></select></div>
                         <div class="form-group"><label>Overall Size (sqft)</label><input type="text" id="propSize" placeholder="e.g., 770-1100 sqft"></div>
                         <div class="form-group"><label>Bedrooms Range</label><input type="text" id="propBeds" placeholder="e.g., 2 - 3 Beds"></div>
+                        <div class="form-group"><label>Bathrooms Range</label><input type="text" id="propBaths" placeholder="e.g., 2 - 3 Baths"></div>
                         <div class="form-group"><label>Carparks</label><input type="text" id="propParks" placeholder="e.g., 1-2 Lots"></div>
                         
                         <div class="form-group">
@@ -623,6 +624,7 @@
                 fillField('propTenure', aiResult.tenure);
                 fillField('propStatus', aiResult.status);
                 fillField('propBeds', aiResult.bedrooms);
+                fillField('propBaths', aiResult.bathrooms);
                 fillField('propParks', aiResult.carparks);
                 fillField('propSize', aiResult.size_sqft);
                 fillField('propFacilities', aiResult.facilities);
@@ -631,6 +633,16 @@
                 
                 if (document.getElementById('propAmenities') && typeof aiResult.nearby_amenities === 'object') {
                     document.getElementById('propAmenities').value = JSON.stringify(aiResult.nearby_amenities, null, 2);
+                }
+
+                // 户型表：抽到几列就铺几列，覆盖掉现有的空白列
+                if (Array.isArray(aiResult.floor_plans) && aiResult.floor_plans.length) {
+                    document.getElementById('insightsWrapper').innerHTML = '';
+                    aiResult.floor_plans.forEach(r => addInsightRow(r.type, r.size, r.layout, r.price));
+                }
+
+                if (aiResult.latitude !== undefined && aiResult.longitude !== undefined) {
+                    applyAiCoordinates(aiResult.latitude, aiResult.longitude, aiResult.location);
                 }
 
                 showToast('Analysis complete. Form auto-filled!', 'success');
@@ -911,6 +923,9 @@
             document.getElementById('aiImageUrl').value = '';
             clearPickedFile();
             document.getElementById('floorplanPreview').innerHTML = '';
+            const geoOut = document.getElementById('geoResult');
+            geoOut.style.color = 'var(--text-muted)';
+            geoOut.innerText = 'Without coordinates the public map can only show an approximate area for this listing.';
             document.getElementById('propId').value = '';
             document.getElementById('modalTitle').innerText = 'Add New Property';
             document.getElementById('insightsWrapper').innerHTML = '';
@@ -945,6 +960,7 @@
             document.getElementById('propTenure').value = prop.tenure || 'Freehold';
             document.getElementById('propSize').value = prop.size_sqft || '';
             document.getElementById('propBeds').value = prop.bedrooms || '';
+            document.getElementById('propBaths').value = prop.bathrooms || '';
             document.getElementById('propParks').value = prop.carparks || '';
             document.getElementById('propImage').value = prop.image_url || '';
             document.getElementById('propFloorplan').value = prop.floorplan_url || '';
@@ -1040,6 +1056,7 @@
                 tenure: document.getElementById('propTenure').value,
                 size_sqft: document.getElementById('propSize').value,
                 bedrooms: document.getElementById('propBeds').value,
+                bathrooms: document.getElementById('propBaths').value,
                 carparks: document.getElementById('propParks').value,
                 image_url: document.getElementById('propImage').value,
                 floorplan_url: document.getElementById('propFloorplan').value,
@@ -1144,6 +1161,53 @@
 
         // 跟客户端同一把 Mapbox public token（pk. 开头的本来就是设计给前端用的）
         const MAPBOX_TOKEN = 'pk.eyJ1Ijoia3Jpc2xva2UiLCJhIjoiY21xMTQ4eXBuMDcxYTJyczdib3c0cWkyZSJ9._8hUTQ1gWo9_2LkqIkHqjw';
+
+        // 两点之间的距离（公里）。用来判断模型给的座标离该地区有多远。
+        function kmBetween(lat1, lng1, lat2, lng2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) ** 2 +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        // 模型给的座标先填上，但一定要拿地名去对一次。
+        // LLM 讲得出具体数字不代表它是对的 —— 这个网站会拿它画地图钉，
+        // 钉错地方比没有钉更糟。
+        async function applyAiCoordinates(lat, lng, location) {
+            document.getElementById('propLat').value = Number(lat).toFixed(6);
+            document.getElementById('propLng').value = Number(lng).toFixed(6);
+
+            const out = document.getElementById('geoResult');
+            out.style.color = 'var(--pending-text)';
+            out.innerText = 'Coordinates suggested by AI — checking them against the location...';
+
+            if (!location) { out.innerText = 'Coordinates suggested by AI. Please verify on Google Maps.'; return; }
+
+            try {
+                const url = 'https://api.mapbox.com/geocoding/v5/mapbox.places/'
+                    + encodeURIComponent(location) + '.json?country=my&limit=1&access_token=' + MAPBOX_TOKEN;
+                const res = await fetch(url);
+                const data = await res.json();
+                const f = data.features && data.features[0];
+                if (!f) { out.innerText = 'Coordinates suggested by AI. Could not cross-check — verify on Google Maps.'; return; }
+
+                const km = kmBetween(lat, lng, f.center[1], f.center[0]);
+                if (km > 15) {
+                    out.style.color = 'var(--danger-text)';
+                    out.innerText = '⚠ The AI put this ' + Math.round(km) + 'km from ' + f.place_name
+                        + '. That looks wrong — check it on Google Maps before saving.';
+                } else {
+                    out.style.color = 'var(--success-text)';
+                    out.innerText = 'AI coordinates land ' + km.toFixed(1) + 'km from ' + f.place_name
+                        + ' — plausible, but still worth a glance on Google Maps.';
+                }
+            } catch (err) {
+                console.warn('Coordinate cross-check failed:', err);
+                out.innerText = 'Coordinates suggested by AI. Cross-check failed — verify on Google Maps.';
+            }
+        }
 
         async function lookupCoordinates() {
             const location = document.getElementById('propLocation').value.trim();
