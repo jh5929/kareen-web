@@ -141,6 +141,13 @@
                           border: 1px solid var(--border-color); background: var(--bg-light);
                           cursor: zoom-in; object-fit: contain; }
         .plan-hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+
+        .detail-header .back-btn { justify-self: start; }
+        .detail-header-pad { justify-self: end; }
+        .detail-header-title { justify-self: center; min-width: 0; max-width: 100%;
+                               font-family: 'Playfair Display', serif; font-weight: 700;
+                               font-size: 15px; letter-spacing: -0.2px; color: var(--primary);
+                               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .mapboxgl-popup-content { background-color: #0B1D3A; color: #F8F9FA; border-radius: 8px; padding: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.2); border: 1px solid #C8A96E; min-width: 200px; }
         .mapboxgl-popup-close-button { color: #C8A96E; font-size: 16px; right: 8px; top: 5px; }
         .popup-title { font-weight: bold; font-size: 16px; margin-bottom: 5px; color: #C8A96E;}
@@ -198,7 +205,9 @@
         .section-header h2 { font-family: 'Playfair Display', serif; font-size: 20px; margin: 0; color: var(--bg-dark); }
         
         #detailView { background: #fff; position: fixed; top: 0; left: 0; right: 0; margin: 0 auto; width: 100%; max-width: var(--max-width); height: 100vh; overflow-y: auto; z-index: 80; display: none; padding-bottom: 180px; }
-        .detail-header { position: sticky; top: 0; z-index: 85; background: var(--bg-dark); padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        /* 1fr auto 1fr：两侧永远等宽，中间不管按钮多长都落在正中。
+           原本是 flex + space-between 配一块写死 50px 的空白，左右对不上。 */
+        .detail-header { position: sticky; top: 0; z-index: 85; background: var(--bg-dark); padding: 14px 16px; display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .back-btn { display: flex; align-items: center; font-weight: 600; font-size: 14px; color: var(--primary); cursor: pointer; border: none; background: transparent; }
         .project-hero { position: relative; height: 320px; background: #eee; overflow: hidden; }
         .project-hero img { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.3s ease; }
@@ -402,14 +411,17 @@
                     <button class="cat-chip" data-status="Completed" onclick="pickCategory(this)">Completed</button>
                 </div>
 
-                <div id="listView">
-                    <div class="results-bar">
-                        <span class="results-count" id="resultsCount">&nbsp;</span>
-                        <div class="search-tabs">
-                            <button id="tab-list-btn" class="active" onclick="switchInnerSearch('list', this)">List</button>
-                            <button id="tab-map-btn" onclick="switchInnerSearch('map', this)">Map</button>
-                        </div>
+                <!-- 这一列必须留在 #listView 外面：切到地图时 #listView 会被隐藏，
+                     切换钮跟着一起消失的话就回不了列表了 -->
+                <div class="results-bar">
+                    <span class="results-count" id="resultsCount">&nbsp;</span>
+                    <div class="search-tabs">
+                        <button id="tab-list-btn" class="active" onclick="switchInnerSearch('list', this)">List</button>
+                        <button id="tab-map-btn" onclick="switchInnerSearch('map', this)">Map</button>
                     </div>
+                </div>
+
+                <div id="listView">
 
                     <div class="section" style="padding-top: 14px;">
                         <div class="carousel" id="listingsList">
@@ -498,9 +510,9 @@
 
         <div id="detailView">
             <div class="detail-header">
-                <button class="back-btn" onclick="closeDetailView()">← Back Explore</button>
-                <div style="font-family: 'Playfair Display', serif; font-weight: 700; letter-spacing: 1px; color: var(--primary);">ASSET DATA</div>
-                <div style="width: 50px;"></div>
+                <button class="back-btn" onclick="closeDetailView()">← Back</button>
+                <div class="detail-header-title" id="detail-header-title">Property</div>
+                <span class="detail-header-pad" aria-hidden="true"></span>
             </div>
             
             <div class="project-hero">
@@ -1469,6 +1481,8 @@
             if(t) {
                 document.getElementById('detail-tag').innerText = t.status || 'Details';
                 document.getElementById('detail-title').innerText = t.title;
+                // 顶部那行显示的就是这套房源，而不是一个装饰性的标签
+                document.getElementById('detail-header-title').innerText = t.title;
                 document.getElementById('detail-location').innerText = t.location;
                 document.getElementById('detail-price').innerText = `From RM ${parseInt(t.price).toLocaleString()}`;
                 
