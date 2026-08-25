@@ -315,6 +315,59 @@
         .status-pill { font-size: 12px; font-weight: 600; padding: 7px 13px; border-radius: 20px;
                        background: var(--bg-light); border: 1px solid var(--border-color); color: var(--bg-dark); }
         .status-pill b { color: var(--primary); margin-left: 7px; }
+
+        /* ================= 版面重整 ================= */
+
+        /* 横向轨道会把房源藏到屏幕外 —— 2 张卡就有 241px 看不到，
+           而且只有 1 张卡时是一条滚不动的滚动条。改成整宽直式堆叠。 */
+        .carousel { display: flex; flex-direction: column; gap: 14px; overflow: visible;
+                    padding: 0 20px 4px; scroll-snap-type: none; }
+        .card { min-width: 0; max-width: none; width: 100%; border-radius: 16px;
+                box-shadow: 0 2px 10px rgba(11,29,58,0.06); }
+        .card-img { height: 210px; }
+        .card-body { padding: 16px 18px 18px; }
+        .card-title { font-family: 'Playfair Display', serif; font-size: 19px; letter-spacing: -0.2px;
+                      white-space: normal; }
+        .card-area { letter-spacing: 0.6px; }
+
+        /* 价格与每尺价并排 —— psf 是马来西亚看房最实际的比较基准 */
+        .price-row { display: flex; align-items: baseline; justify-content: space-between;
+                     gap: 10px; margin-top: 8px; }
+        .card-price { font-size: 17px; margin: 0; }
+        .card-psf { font-size: 12px; font-weight: 700; color: var(--text-muted); white-space: nowrap; }
+
+        .section { padding: 20px 0 6px; }
+        .section-header { padding: 0 20px; margin-bottom: 12px; }
+        .section-header h2 { font-size: 19px; }
+
+        /* 搜索压成一行：原本还有一条价格滑杆和一组分页，吃掉 200px 的首屏。
+           滑杆搬进筛选面板，分页搬到结果列。 */
+        .search-module { padding: 14px 20px 16px; }
+        .search-bar { margin-bottom: 0; }
+
+        /* 分类列：取代原本 Completed / Hot Selling 的硬切分 */
+        .cat-row { display: flex; gap: 8px; overflow-x: auto; padding: 14px 20px 12px;
+                   scrollbar-width: none; background: var(--bg-light); }
+        .cat-row::-webkit-scrollbar { display: none; }
+        .cat-chip { flex-shrink: 0; padding: 9px 16px; border-radius: 20px; border: 1px solid var(--border-color);
+                    background: #fff; font-size: 13px; font-weight: 600; color: var(--text-muted);
+                    cursor: pointer; white-space: nowrap; font-family: inherit;
+                    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), background 0.2s, color 0.2s; }
+        .cat-chip:active { transform: scale(0.94); }
+        .cat-chip.active { background: var(--bg-dark); color: var(--primary); border-color: var(--bg-dark); }
+
+        /* 结果列：几笔结果 + 列表/地图切换 */
+        .results-bar { display: flex; align-items: center; justify-content: space-between;
+                       padding: 4px 20px 0; }
+        .results-count { font-size: 12px; font-weight: 700; color: var(--text-muted);
+                         text-transform: uppercase; letter-spacing: 0.6px; }
+        .search-tabs { display: inline-flex; background: #ece7dd; border-radius: 9px; padding: 3px;
+                       margin: 0; overflow: visible; width: auto; }
+        .search-tabs button { flex: 0 0 auto; padding: 6px 14px; border-radius: 7px; font-size: 12px;
+                              border: none; background: transparent; color: var(--text-muted); }
+        .search-tabs button:first-child { border-right: none; }
+        .search-tabs button.active { background: #fff; color: var(--bg-dark); border-bottom: none;
+                                     box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
     </style>
 </head>
 <body>
@@ -331,10 +384,6 @@
         </header>
 
         <div class="search-module" id="globalSearch">
-            <div class="search-tabs">
-                <button id="tab-list-btn" class="active" onclick="switchInnerSearch('list', this)">List View</button>
-                <button id="tab-map-btn" onclick="switchInnerSearch('map', this)">Map View</button>
-            </div>
             <div class="search-bar">
                 <div class="search-input-wrap">
                     <input type="text" id="searchInput" placeholder="Search Puchong, TRX..." onkeyup="applyAllFilters()">
@@ -342,35 +391,35 @@
                 </div>
                 <div class="filter-btn" onclick="openFilter()">⎈</div>
             </div>
-            <div class="price-range">
-                <div class="price-range-labels">
-                    <span>Max Budget</span>
-                    <span><b id="priceLabel">RM 5.0M+</b></span>
-                </div>
-                <input type="range" id="priceSlider" class="price-slider" min="100000" max="5000000" step="50000" value="5000000" oninput="updatePriceSlider(this.value)">
-            </div>
         </div>
 
         <div class="view-container">
             <div id="searchView" class="view-section active">
+                <div class="cat-row" id="catRow">
+                    <button class="cat-chip active" data-status="Any" onclick="pickCategory(this)">All</button>
+                    <button class="cat-chip" data-status="Launching Soon" onclick="pickCategory(this)">New Launch</button>
+                    <button class="cat-chip" data-status="Ready 2025" onclick="pickCategory(this)">Ready soon</button>
+                    <button class="cat-chip" data-status="Completed" onclick="pickCategory(this)">Completed</button>
+                </div>
+
                 <div id="listView">
-                    <div class="section" style="padding-top: 0;">
-                        <div class="section-header"><h2>Completed Projects</h2></div>
-                        <div class="carousel" id="completedList">
+                    <div class="results-bar">
+                        <span class="results-count" id="resultsCount">&nbsp;</span>
+                        <div class="search-tabs">
+                            <button id="tab-list-btn" class="active" onclick="switchInnerSearch('list', this)">List</button>
+                            <button id="tab-map-btn" onclick="switchInnerSearch('map', this)">Map</button>
+                        </div>
+                    </div>
+
+                    <div class="section" style="padding-top: 14px;">
+                        <div class="carousel" id="listingsList">
                             <div class="empty-state-msg">Fetching cloud data...</div>
                         </div>
                     </div>
-                    <div class="section">
-                        <div class="section-header"><h2>Hot Selling Projects</h2></div>
-                        <div class="carousel" id="hotList">
-                            <div class="empty-state-msg">Fetching cloud data...</div>
-                        </div>
-                    </div>
-                    <div class="section" style="padding-bottom: 20px;">
-                        <div class="section-header"><h2>Saved Properties</h2></div>
-                        <div class="carousel" id="savedList">
-                            <div class="empty-state-msg">Click 'Save' on any property to build your shortlist.</div>
-                        </div>
+
+                    <div class="section" id="savedSection" style="display: none; padding-bottom: 20px;">
+                        <div class="section-header"><h2>Saved</h2></div>
+                        <div class="carousel" id="savedList"></div>
                     </div>
                 </div>
                 
@@ -545,6 +594,14 @@
             </div>
             <div class="search-input-wrap" style="margin-bottom: 20px; border: 1px solid var(--border-color);">
                 <input type="text" id="modalSearchInput" placeholder="Quick keyword search..." onkeyup="syncSearches(this.value)">
+            </div>
+            <div class="filter-group">
+                <label>Max Budget</label>
+                <div class="price-range-labels" style="color: var(--text-muted);">
+                    <span>Up to</span>
+                    <span><b id="priceLabel" style="color: var(--bg-dark);">RM 5.0M+</b></span>
+                </div>
+                <input type="range" id="priceSlider" class="price-slider" min="100000" max="5000000" step="50000" value="5000000" oninput="updatePriceSlider(this.value)" style="background: var(--border-color);">
             </div>
             <div class="filter-group">
                 <label>Property Status</label>
@@ -1022,6 +1079,7 @@
 
             renderActiveCardsToDOM(processedResults);
             renderSavedCardsToDOM();
+            syncCategoryChips();
             updateMapData(processedResults);
         }
 
@@ -1060,6 +1118,8 @@
             const isSaved = savedListIds.includes(asset.id);
             const isCompared = compareListIds.includes(asset.id);
 
+            // psf 是这个市场最实际的比较基准，让人在清单上就能比
+            const psf = psfOf(asset);
             const images = asset.image_url ? asset.image_url.split(',').map(s => s.trim()).filter(Boolean) : [];
             const safeImage = images[0] || CARD_FALLBACK;
             const galleryData = images.length ? images.join(',') : safeImage;
@@ -1094,7 +1154,10 @@
                     <div class="card-body">
                         <div class="card-area">${esc(asset.location || 'Kuala Lumpur')}</div>
                         <h3 class="card-title">${esc(asset.title)}</h3>
-                        <p class="card-price">From RM ${price.toLocaleString()}</p>
+                        <div class="price-row">
+                            <p class="card-price">From RM ${price.toLocaleString()}</p>
+                            ${psf ? `<span class="card-psf">RM ${psf.toLocaleString()} psf</span>` : ''}
+                        </div>
                         ${specs.length ? `<div class="card-specs">${specs.join('')}</div>` : ''}
                     </div>
                 </div>`;
@@ -1114,47 +1177,71 @@
         }
 
         function showSkeletons() {
-            ['completedList', 'hotList'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.innerHTML = skeletonCards(3);
-            });
+            const el = document.getElementById('listingsList');
+            if (el) el.innerHTML = skeletonCards(3);
         }
 
+        // 原本硬切成 Completed / Hot Selling 两条横向轨道。房源只有个位数时，
+        // 这个切分会做出「只有一张卡的滚动条」和「藏在屏幕外的第二张」。
+        // 现在是一条直式清单，分类交给上面的 chips。
         function renderActiveCardsToDOM(records) {
-            const completedList = document.getElementById('completedList');
-            const hotList = document.getElementById('hotList');
+            const list = document.getElementById('listingsList');
+            const count = document.getElementById('resultsCount');
 
-            if (globalPropertiesRegistry.length === 0) {
-                completedList.innerHTML = '<div class="empty-state-msg">No completed projects available yet.</div>';
-                hotList.innerHTML = '<div class="empty-state-msg">No upcoming projects available yet.</div>';
+            if (!globalPropertiesRegistry.length) {
+                list.innerHTML = '<div class="empty-state-msg">No properties available yet.</div>';
+                count.innerHTML = '&nbsp;';
                 return;
             }
 
-            // 先拼字串再一次写入。原本在回圈里 innerHTML += 会让浏览器每加一张卡就重解析整串。
-            let completedHtml = '', hotHtml = '';
-            records.forEach(asset => {
-                const status = asset.status || 'Active Launched';
-                const card = buildPropertyCard(asset);
-                if (status.includes('Completed') || status.includes('Ready')) completedHtml += card;
-                else hotHtml += card;
-            });
+            if (!records.length) {
+                list.innerHTML = '<div class="empty-state-msg">Nothing matches these filters.</div>';
+                count.innerText = '0 properties';
+                return;
+            }
 
-            completedList.innerHTML = completedHtml || '<div class="empty-state-msg">No properties match this filter.</div>';
-            hotList.innerHTML = hotHtml || '<div class="empty-state-msg">No properties match this filter.</div>';
+            count.innerText = records.length + (records.length === 1 ? ' property' : ' properties');
+            list.innerHTML = records.map(a => buildPropertyCard(a)).join('');
         }
-
         function renderSavedCardsToDOM() {
             const savedContainer = document.getElementById('savedList');
-            if (!savedContainer) return;
+            const section = document.getElementById('savedSection');
+            if (!savedContainer || !section) return;
 
-            if (savedListIds.length === 0) {
-                savedContainer.innerHTML = '<div class="empty-state-msg">Click \'Save\' on any property to build your shortlist.</div>';
-                return;
-            }
+            const savedProps = savedListIds
+                .map(id => globalPropertiesRegistry.find(p => p.id === id))
+                .filter(Boolean);
 
-            const savedProps = savedListIds.map(id => globalPropertiesRegistry.find(p => p.id === id)).filter(Boolean);
-            savedContainer.innerHTML = savedProps.map(asset => buildPropertyCard(asset, { savedList: true })).join('');
+            // 一个空的「Saved」标题只是白占位置，没存东西就整块不出现
+            if (!savedProps.length) { section.style.display = 'none'; return; }
+
+            section.style.display = 'block';
+            savedContainer.innerHTML = savedProps.map(a => buildPropertyCard(a, { savedList: true })).join('');
         }
+        // Chips 不另建一套筛选状态 —— 直接去点筛选面板里那颗对应的 chip，
+        // 两边永远一致，不会出现「首页显示 New Launch、面板显示 Any」。
+        function pickCategory(btn) {
+            document.querySelectorAll('#catRow .cat-chip').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+
+            const wanted = btn.getAttribute('data-status');
+            document.querySelectorAll('#filter-status .chip').forEach(chip => {
+                chip.classList.toggle('selected', chip.getAttribute('data-value') === wanted);
+            });
+
+            applyAllFilters();
+        }
+
+        // 反向同步：从筛选面板改状态时，首页的 chips 也要跟上
+        function syncCategoryChips() {
+            const sel = document.querySelector('#filter-status .chip.selected');
+            if (!sel) return;
+            const current = sel.getAttribute('data-value');
+            document.querySelectorAll('#catRow .cat-chip').forEach(c => {
+                c.classList.toggle('active', c.getAttribute('data-status') === current);
+            });
+        }
+
         function syncSearches(val) { document.getElementById('searchInput').value = val; applyAllFilters(); }
 
         function updatePriceSlider(val) {

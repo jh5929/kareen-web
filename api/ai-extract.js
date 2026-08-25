@@ -80,6 +80,10 @@ function buildPrompt(rawText, hasAttachment) {
     '- status: MUST BE EXACTLY "Launching Soon", "Ready 2025", or "Completed". Defaults to "Launching Soon".',
     '- price: MUST be a pure number without RM or commas (e.g., 550000). If not found, use 0.',
     '- bedrooms / bathrooms: keep them separate. Never put bath counts inside the bedrooms field.',
+    '- title: copy the project name exactly as written in the source, character for character.',
+    '  Developers style their names deliberately — "HAUS on 15" is not "Haus On 15", and',
+    '  retitling someone\'s project is a factual error. Never title-case, upper-case or',
+    '  otherwise tidy it.',
     '',
     'floor_plans: one entry per unit type in the price list or floor plan schedule.',
     'Leave the array empty if the material does not break the project down by type.',
@@ -194,8 +198,39 @@ async function fetchAsInlineData(url) {
 /* --------------------------------------------------------------------------
  * Provider: Gemini
  * ----------------------------------------------------------------------- */
+/* 单一模型会因为配额用尽（429）或流量尖峰（503）整个不能用 ——
+   实测过 gemini-3.5-flash 回 429 而 gemini-flash-latest 同时正常。
+   备援链让一个模型挂掉不等于这个功能挂掉。 */
+function geminiModelChain() {
+  const chain = [process.env.GEMINI_MODEL || 'gemini-3.5-flash', 'gemini-flash-latest'];
+  return chain.filter(function (m, i) { return m && chain.indexOf(m) === i; });
+}
+
+async function postToGemini(model, parts, useThinking) {
+  const generationConfig = { responseMimeType: 'application/json', temperature: 0.2 };
+
+  /* 这是把栏位从文件里挑出来，不是需要推理的题目。
+     实测同一份价目表：放任思考 131 秒、thinkingBudget 0 只要 2.1 秒，
+     抽出来的五个户型一模一样。Vercel 的 function 上限是 60 秒，
+     不关掉思考这个 endpoint 会直接超时。 */
+  if (useThinking) generationConfig.thinkingConfig = { thinkingBudget: 0 };
+
+  const res = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': process.env.GEMINI_API_KEY,
+      },
+      body: JSON.stringify({ contents: [{ role: 'user', parts: parts }], generationConfig: generationConfig }),
+    }
+  );
+
+  return { res: res, data: await res.json() };
+}
+
 async function callGemini(prompt, attachment) {
-  const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
   const parts = [{ text: prompt }];
 
   /* Gemini 原生看得懂 PDF —— 文字、表格、版面都读得到，
@@ -204,30 +239,41 @@ async function callGemini(prompt, attachment) {
     parts.push({ inline_data: attachment });
   }
 
-  const endpoint =
-    'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent';
+  const models = geminiModelChain();
+  let res, data;
 
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': process.env.GEMINI_API_KEY,
-    },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: parts }],
-      generationConfig: {
-        responseMimeType: 'application/json',
-        temperature: 0.2,
-        /* 这是把栏位从文件里挑出来，不是需要推理的题目。
-           实测同一份价目表：放任思考 131 秒、thinkingBudget 0 只要 2.1 秒，
-           抽出来的五个户型一模一样。Vercel 的 function 上限是 60 秒，
-           不关掉思考这个 endpoint 会直接超时。 */
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    }),
-  });
+  for (let m = 0; m < models.length; m++) {
+    const model = models[m];
 
-  const data = await res.json();
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) {
+        console.warn('Gemini busy on ' + model + ', retrying once');
+        await new Promise(function (r) { setTimeout(r, 700); });
+      }
+
+      let out = await postToGemini(model, parts, true);
+
+      /* 不是每个模型都吃 thinkingBudget —— 3.6-flash 和 3.5-flash-lite 会回
+         400 INVALID_ARGUMENT。拿掉这个参数再试一次，别为此放弃整个模型。 */
+      if (!out.res.ok && out.res.status === 400 &&
+          /thinking/i.test(JSON.stringify(out.data && out.data.error || ''))) {
+        console.warn(model + ' rejected thinkingConfig, retrying without it');
+        out = await postToGemini(model, parts, false);
+      }
+
+      res = out.res;
+      data = out.data;
+
+      if (res.ok) break;
+      if (res.status !== 503 && res.status !== 429) break;
+    }
+
+    if (res.ok) break;
+    if (res.status !== 503 && res.status !== 429) break;
+    if (m < models.length - 1) {
+      console.warn(model + ' unavailable (' + res.status + '), falling back to ' + models[m + 1]);
+    }
+  }
 
   if (!res.ok) {
     console.error('Gemini error:', res.status, data && data.error);
