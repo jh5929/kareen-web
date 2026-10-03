@@ -527,7 +527,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closePropertyModal()">Cancel</button>
-                <button class="btn btn-primary auto-width" onclick="saveProperty()">Save Property</button>
+                <button class="btn btn-primary auto-width" id="saveBtn" onclick="saveProperty()">Save Property</button>
             </div>
         </div>
     </div>
@@ -700,11 +700,19 @@
                     throw new Error(aiResult.error || `API Error: ${response.status}`);
                 }
 
-                // Auto-fill form
-                const fillField = (id, value) => { 
-                    if (document.getElementById(id) && value !== undefined && value !== null && value !== "") {
-                        document.getElementById(id).value = value; 
-                    }
+                // 编辑现有房源时，AI 只补空着的栏位。原本会直接覆盖 ——
+                // 拿一段只讲设施的文字跑 AI，标题、价格、状态就全被换掉了。
+                const editing = !!document.getElementById('propId').value;
+                let filled = 0, kept = 0;
+                const fillField = (id, value) => {
+                    const el = document.getElementById(id);
+                    if (!el || value === undefined || value === null || value === '') return;
+                    // 模型找不到价格时回 0。写进去的话，存档后公开网站就显示「From RM 0」
+                    if (id === 'propPrice' && !(Number(value) > 0)) return;
+                    // 下拉选单永远有值，所以编辑模式下状态 / 类型 / 产权不会被模型的预设值盖掉
+                    if (editing && String(el.value || '').trim() !== '') { kept++; return; }
+                    el.value = value;
+                    filled++;
                 };
 
                 fillField('propTitle', aiResult.title);
@@ -721,21 +729,33 @@
                 fillField('propHighlight', aiResult.property_highlight);
                 fillField('propDesc', aiResult.description);
                 
-                if (document.getElementById('propAmenities') && typeof aiResult.nearby_amenities === 'object') {
-                    document.getElementById('propAmenities').value = JSON.stringify(aiResult.nearby_amenities, null, 2);
+                const amenitiesEl = document.getElementById('propAmenities');
+                if (amenitiesEl && aiResult.nearby_amenities && typeof aiResult.nearby_amenities === 'object') {
+                    if (editing && amenitiesEl.value.trim()) kept++;
+                    else { amenitiesEl.value = JSON.stringify(aiResult.nearby_amenities, null, 2); filled++; }
                 }
 
-                // 户型表：抽到几列就铺几列，覆盖掉现有的空白列
+                // 户型表：表里已经有填过的列就不动，免得手动修正过的价格被整表换掉
+                const hasPlans = [...document.querySelectorAll('#insightsWrapper .dynamic-row input')]
+                    .some(i => i.value.trim());
                 if (Array.isArray(aiResult.floor_plans) && aiResult.floor_plans.length) {
-                    document.getElementById('insightsWrapper').innerHTML = '';
-                    aiResult.floor_plans.forEach(r => addInsightRow(r.type, r.size, r.layout, r.price));
+                    if (hasPlans) kept++;
+                    else {
+                        document.getElementById('insightsWrapper').innerHTML = '';
+                        aiResult.floor_plans.forEach(r => addInsightRow(r.type, r.size, r.layout, r.price));
+                        filled++;
+                    }
                 }
 
+                const hasCoords = document.getElementById('propLat').value && document.getElementById('propLng').value;
                 if (aiResult.latitude !== undefined && aiResult.longitude !== undefined) {
-                    applyAiCoordinates(aiResult.latitude, aiResult.longitude, aiResult.location);
+                    if (hasCoords) kept++;
+                    else { applyAiCoordinates(aiResult.latitude, aiResult.longitude, aiResult.location); filled++; }
                 }
 
-                showToast('Analysis complete. Form auto-filled!', 'success');
+                showToast(kept
+                    ? `Filled ${filled} empty field${filled === 1 ? '' : 's'} · kept ${kept} you already had`
+                    : `Filled ${filled} field${filled === 1 ? '' : 's'}`, 'success');
             } catch (error) {
                 console.error('AI Parsing Error:', error);
                 showToast(`AI Error: ${error.message}`, 'error');
@@ -862,7 +882,7 @@
                     rowsHtml += `
                         <tr>
                             <td style="font-weight: 600; color: var(--navy);">${name}</td>
-                            <td><a href="https://wa.me/${wa}" target="_blank" style="color: var(--success-text); font-weight: 600; text-decoration: underline;">${phone}</a></td>
+                            <td>${wa ? `<a href="https://wa.me/${wa}" target="_blank" style="color: var(--success-text); font-weight: 600; text-decoration: underline;">${phone}</a>` : phone}</td>
                             <td style="font-weight: 600; color: var(--gold);">${property}</td>
                             <td style="font-weight: 500;">${date}</td>
                             <td><span style="background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-weight: 600;">${slot}</span></td>
@@ -883,7 +903,7 @@
                                 ${badge}
                             </div>
                             <div class="card-rows">
-                                <div class="card-row"><span class="k">Phone</span><span class="v"><a href="https://wa.me/${wa}" target="_blank" style="color: var(--success-text); text-decoration: underline;">${phone}</a></span></div>
+                                <div class="card-row"><span class="k">Phone</span><span class="v">${wa ? `<a href="https://wa.me/${wa}" target="_blank" style="color: var(--success-text); text-decoration: underline;">${phone}</a>` : phone}</span></div>
                                 <div class="card-row"><span class="k">Date</span><span class="v">${date}</span></div>
                                 <div class="card-row"><span class="k">Time</span><span class="v">${slot}</span></div>
                             </div>
@@ -1017,7 +1037,14 @@
             renderHealthBanner();
         }
 
+        function resetSaveButton() {
+            savingProperty = false;
+            const b = document.getElementById('saveBtn');
+            if (b) { b.disabled = false; b.innerText = 'Save Property'; }
+        }
+
         function openPropertyModal() {
+            resetSaveButton();
             document.getElementById('propertyForm').reset();
             document.getElementById('aiRawText').value = '';
             document.getElementById('aiImageUrl').value = '';
@@ -1035,6 +1062,7 @@
         function closePropertyModal() { closeModal('propertyModal'); }
 
         function editProperty(id) {
+            resetSaveButton();
             const prop = allProperties.find(p => p.id === id);
             if(!prop) return;
             document.getElementById('modalTitle').innerText = 'Edit Property Matrix';
@@ -1055,9 +1083,9 @@
             document.getElementById('propLng').value = prop.lng || '';
             document.getElementById('propLat').value = prop.lat || '';
             
-            document.getElementById('propStatus').value = prop.status || 'Launching Soon';
-            document.getElementById('propType').value = prop.property_type || 'Residential';
-            document.getElementById('propTenure').value = prop.tenure || 'Freehold';
+            setSelect('propStatus', prop.status || 'Launching Soon');
+            setSelect('propType', prop.property_type || 'Residential');
+            setSelect('propTenure', prop.tenure || 'Freehold');
             document.getElementById('propSize').value = prop.size_sqft || '';
             document.getElementById('propBeds').value = prop.bedrooms || '';
             document.getElementById('propBaths').value = prop.bathrooms || '';
@@ -1081,7 +1109,11 @@
         // ==========================================
         // Safe Save Logic (Idiot-proof JSON)
         // ==========================================
+        // 手机上连点两次「Save」会插入两笔一样的房源。存档进行中就不接受第二次。
+        let savingProperty = false;
+
         async function saveProperty() {
+            if (savingProperty) return;
             const id = document.getElementById('propId').value;
             const title = document.getElementById('propTitle').value.trim();
             const location = document.getElementById('propLocation').value.trim();
@@ -1110,6 +1142,11 @@
             if(!title || !location || !price) { 
                 showToast('Please fill in required fields (Title, Location, Price).', 'error'); 
                 return; 
+            }
+            // !'0' 是 false，所以价格 0 原本挡不下来，公开网站就显示「From RM 0」
+            if (!(Number(price) > 0)) {
+                showToast('Price must be more than RM 0.', 'error');
+                return;
             }
 
             const insightRows = document.querySelectorAll('.dynamic-row');
@@ -1160,6 +1197,10 @@
                 price_insights: priceInsightsArr
             };
 
+            const saveBtn = document.getElementById('saveBtn');
+            savingProperty = true;
+            if (saveBtn) { saveBtn.disabled = true; saveBtn.innerText = 'Saving…'; }
+
             try {
                 let error;
                 if(id) { 
@@ -1173,7 +1214,11 @@
                 showToast(id ? 'Property Updated!' : 'Property Added!', 'success');
                 closePropertyModal();
                 fetchPropertiesData();
-            } catch (err) { showToast(err.message, 'error'); }
+                // 成功后不解锁：弹窗还要淡出 320ms，这期间再按一次 Save 会插入第二笔。下次开弹窗时才解锁
+            } catch (err) {
+                showToast(err.message, 'error');
+                resetSaveButton();
+            }
         }
 
         function deleteProperty(id) {
@@ -1576,7 +1621,11 @@
             if (specs.length) out.push('🛏️ ' + specs.join(' · '));
 
             const tenure = zh ? (ZH_LABELS.tenure[p.tenure] || p.tenure) : p.tenure;
-            const status = zh ? (ZH_LABELS.status[p.status] || p.status) : p.status;
+            // "Ready 2025" 这类带年份的状态没办法逐一列在对照表里
+            const readyYear = /^Ready\s+(\d{4})$/i.exec(String(p.status || ''));
+            const status = zh
+                ? (ZH_LABELS.status[p.status] || (readyYear ? readyYear[1] + ' 年交屋' : p.status))
+                : p.status;
             const meta = [tenure, status].filter(Boolean);
             if (meta.length) out.push('📜 ' + meta.join(' · '));
 
@@ -1595,7 +1644,8 @@
 
             out.push('');
             out.push(zh ? '👉 图片、平面图与详情：' : '👉 Photos, floor plans & details:');
-            out.push(PUBLIC_SITE + '/#property/' + p.id);
+            // /p/<id> 会回传带这套房源照片与价格的预览卡，再把人导去 /#property/<id>（见 api/p.js）
+            out.push(PUBLIC_SITE + '/p/' + p.id);
             out.push('');
             out.push(AGENT.name + ' · ' + AGENT.ren);
             out.push((zh ? '预约看房：' : 'Book a viewing: ') + 'wa.me/' + AGENT.wa);
@@ -1682,10 +1732,31 @@
         }
 
         function escapeHtml(str) { return str ? String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") : ""; }
-        function formatPhoneForWhatsApp(phone) { 
-            if(!phone) return ""; 
-            let c = phone.replace(/\D/g, ""); 
-            return c.startsWith('0') ? '6' + c : c; 
+        // 原本只处理开头的 0：客户填「12-345 6789」会变成无效的 123456789，
+        // 空号码则产生一个没有收件人的 https://wa.me/。
+        function formatPhoneForWhatsApp(phone) {
+            const c = String(phone || '').replace(/\D/g, '');
+            if (c.length < 8) return '';                       // 不像电话号码，宁可不给连结
+            if (c.startsWith('60')) return c;                   // +60 / 60 开头
+            if (c.startsWith('0')) return '6' + c;              // 012-xxx
+            if (/^1\d{8,9}$/.test(c)) return '60' + c;          // 12-xxx，漏了开头的 0
+            return c;                                           // 其他国家的号码照原样
+        }
+
+        // 资料库里的值不在下拉选单里时（例如旧的状态名），直接设 .value 会让选单变空白，
+        // 存档时就把空字串写回去、默默洗掉原值。先补一个临时选项再选。
+        function setSelect(id, value) {
+            const sel = document.getElementById(id);
+            if (!sel) return;
+            sel.querySelectorAll('option[data-temp]').forEach(o => o.remove());
+            if (value && ![...sel.options].some(o => o.value === value)) {
+                const opt = document.createElement('option');
+                opt.value = value;
+                opt.textContent = value + ' (current)';
+                opt.setAttribute('data-temp', '1');
+                sel.appendChild(opt);
+            }
+            sel.value = value;
         }
     </script>
 </body>

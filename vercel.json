@@ -3,5 +3,8 @@
     "api/ai-extract.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/p/:id", "destination": "/api/p?id=:id" }
+  ]
 }

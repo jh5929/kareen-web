@@ -645,9 +645,9 @@
                 <label>Bedrooms Configuration</label>
                 <div class="chip-container" id="filter-rooms">
                     <div class="chip selected" data-value="Any">Any Layout</div>
-                    <div class="chip" data-value="1 Room">1 Unit</div>
-                    <div class="chip" data-value="2 Rooms">2 Units</div>
-                    <div class="chip" data-value="3+ Rooms">3+ Units</div>
+                    <div class="chip" data-value="1">1 Bed</div>
+                    <div class="chip" data-value="2">2 Beds</div>
+                    <div class="chip" data-value="3+">3+ Beds</div>
                 </div>
             </div>
             <div class="filter-action">
@@ -1055,6 +1055,20 @@
             return R * c; 
         }
 
+        // bedrooms 是自由输入的（"2 - 3 Beds"、"3"、"2-3 Bedrooms, 2 Bathrooms"），
+        // 抓出合理的房数当成区间来比：一套 2–3 房的项目，选 2 房或 3 房以上都应该出现。
+        // 抓不到数字的不算符合 —— 不能假装它有客户要的户型。
+        function bedroomsMatch(raw, wanted) {
+            // 只看逗号前那段，免得 "2-3 Bedrooms, 2 Bathrooms" 的浴室数混进来
+            const head = String(raw || '').split(',')[0];
+            const nums = (head.match(/\d+/g) || []).map(Number).filter(n => n >= 1 && n <= 9);
+            if (!nums.length) return false;
+            const lo = Math.min(...nums), hi = Math.max(...nums);
+            if (wanted === '3+') return hi >= 3;
+            const n = parseInt(wanted, 10);
+            return n >= lo && n <= hi;
+        }
+
         function applyAllFilters() {
             const textQuery = document.getElementById('searchInput').value.toLowerCase().trim();
             const maxBudget = parseInt(document.getElementById('priceSlider').value);
@@ -1084,7 +1098,7 @@
                 const statMatch = (selStatus === 'Any') || (asset.status === selStatus);
                 const tenureMatch = (selTenure === 'Any') || (asset.tenure === selTenure);
                 const typeMatch = (selType === 'Any') || (asset.property_type === selType);
-                const roomMatch = (selRooms === 'Any') || ((asset.bedrooms || "").includes(selRooms));
+                const roomMatch = (selRooms === 'Any') || bedroomsMatch(asset.bedrooms, selRooms);
                 
                 return textOrDistMatch && costMatch && statMatch && tenureMatch && typeMatch && roomMatch;
             });
