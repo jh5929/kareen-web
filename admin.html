@@ -223,6 +223,37 @@
                             background: rgba(11,29,58,0.85); color: var(--gold); }
         .media-hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
 
+        /* ---------- 资料健康度 ---------- */
+        .health-chip { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 9px;
+                       border-radius: 20px; white-space: nowrap; }
+        .health-chip.ok { background: var(--success-bg); color: var(--success-text); }
+        .health-chip.warn { background: var(--pending-bg); color: var(--pending-text); }
+        .health-banner { background: var(--pending-bg); border: 1px solid rgba(176,96,0,0.18);
+                         border-radius: var(--r-md); padding: 14px 16px; color: var(--pending-text); }
+        .health-banner b { display: block; font-size: 14px; margin-bottom: 8px; }
+        .health-fix { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+                      width: 100%; text-align: left; background: #fff; border: 1px solid rgba(176,96,0,0.15);
+                      border-radius: var(--r-sm); padding: 10px 12px; margin-top: 6px; font-family: inherit;
+                      font-size: 13px; color: var(--text-dark); cursor: pointer; min-height: 44px;
+                      transition: transform 0.4s var(--spring); }
+        .health-fix:active { transform: scale(0.98); }
+        .health-fix span { color: var(--text-muted); font-size: 12px; }
+        .missing-line { font-size: 12px; color: var(--pending-text); line-height: 1.5; }
+
+        /* ---------- 分享包 ---------- */
+        .share-lang { display: inline-flex; background: #ece7dd; border-radius: 10px; padding: 3px; margin-bottom: 12px; }
+        .share-lang button { border: none; background: transparent; padding: 8px 16px; border-radius: 8px;
+                             font-family: inherit; font-size: 14px; font-weight: 600; color: var(--text-muted);
+                             cursor: pointer; min-height: 38px; }
+        .share-lang button.active { background: #fff; color: var(--navy); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .share-text { width: 100%; min-height: 300px; padding: 14px; border: 1px solid var(--border);
+                      border-radius: var(--r-md); font-family: inherit; font-size: 16px; line-height: 1.5;
+                      background: #f8fafc; resize: vertical; }
+        .share-text:focus { outline: none; border-color: var(--navy); background: #fff; }
+        .share-note { display: block; margin-top: 8px; font-size: 12px; color: var(--text-muted); }
+        .btn-wa { background: #25D366; color: #fff; }
+        .btn-wa:hover { opacity: 0.92; }
+
         /* ---------- 手机 ---------- */
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); box-shadow: 20px 0 60px rgba(0,0,0,0.25); }
@@ -339,6 +370,7 @@
                     </h1>
                     <button class="btn btn-primary auto-width" onclick="openPropertyModal()">+ Add New Property</button>
                 </div>
+                <div class="health-banner" id="healthBanner" style="display: none;"></div>
                 <div class="table-panel">
                     <div class="table-header-bar">
                         <h3 style="margin: 0; color: var(--navy);">Active Portfolio</h3>
@@ -496,6 +528,30 @@
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closePropertyModal()">Cancel</button>
                 <button class="btn btn-primary auto-width" onclick="saveProperty()">Save Property</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 点背景可以关：这里没有会遗失的表单资料，文案每次打开都会重新产生 -->
+    <div class="modal-overlay" id="shareModal" onclick="if (event.target === this) closeModal('shareModal')">
+        <div class="modal-content" style="max-width: 560px;">
+            <div class="sheet-handle"></div>
+            <div class="modal-header">
+                <h2 id="shareTitle" style="margin:0; font-size:18px;">Share listing</h2>
+                <button class="btn" style="background:transparent; color:#fff; font-size:24px; padding:0;" onclick="closeModal('shareModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="share-lang">
+                    <button data-lang="en" class="active" onclick="setShareLang('en')">English</button>
+                    <button data-lang="zh" onclick="setShareLang('zh')">中文</button>
+                </div>
+                <textarea id="shareText" class="share-text"></textarea>
+                <small class="share-note" id="shareNote">Edit freely before sending. The link opens this listing directly on your site.</small>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="copyShareText()">Copy</button>
+                <button class="btn btn-outline" onclick="shareNative()">More…</button>
+                <button class="btn btn-wa" onclick="openWhatsAppShare()">WhatsApp</button>
             </div>
         </div>
     </div>
@@ -903,8 +959,12 @@
                     let insightsCount = 0;
                     try { if(prop.price_insights) insightsCount = prop.price_insights.length || 0; } catch(e){}
 
-                    const safeImage = prop.image_url ? prop.image_url.split(',')[0].trim() : FALLBACK_IMG;
+                    const safeImage = escapeHtml(prop.image_url ? prop.image_url.split(',')[0].trim() : FALLBACK_IMG);
                     const title = escapeHtml(prop.title);
+                    const gaps = listingGaps(prop);
+                    const healthChip = gaps.length
+                        ? `<span class="health-chip warn" title="${escapeHtml(gaps.map(g => g.label).join(', '))}">${gaps.length} missing</span>`
+                        : '<span class="health-chip ok">Complete</span>';
                     const location = escapeHtml(prop.location);
                     const price = 'RM ' + Number(prop.price).toLocaleString();
                     const statusBadge = `<span class="status-badge completed" style="background: #f1f5f9; color: var(--navy);">${escapeHtml(prop.status)}</span>`;
@@ -914,12 +974,14 @@
                             <td><img src="${safeImage}" onerror="this.src='${FALLBACK_IMG}'" alt="cover" style="width: 50px; height: 50px; border-radius: 6px; object-fit: cover;"></td>
                             <td>
                                 <div style="font-weight: 700; color: var(--navy);">${title}</div>
-                                <div style="font-size: 11px; color: var(--text-muted);">${insightsCount} Floor Plans attached</div>
+                                <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">${insightsCount} Floor Plans attached</div>
+                                ${healthChip}
                             </td>
                             <td style="font-size: 13px;">${location}</td>
                             <td style="font-weight: 600; color: var(--gold);">${price}</td>
                             <td>${statusBadge}</td>
-                            <td style="text-align: right;">
+                            <td style="text-align: right; white-space: nowrap;">
+                                <button class="btn btn-outline" style="font-size: 11px; margin-right: 4px;" onclick="openShare('${prop.id}')">Share</button>
                                 <button class="btn btn-outline" style="font-size: 11px; margin-right: 4px;" onclick="editProperty('${prop.id}')">Edit</button>
                                 <button class="btn btn-danger" style="font-size: 11px;" onclick="deleteProperty('${prop.id}')">Del</button>
                             </td>
@@ -938,8 +1000,11 @@
                             <div class="card-rows">
                                 <div class="card-row"><span class="k">Price</span><span class="v" style="color: var(--gold);">${price}</span></div>
                                 <div class="card-row"><span class="k">Floor plans</span><span class="v">${insightsCount}</span></div>
+                                <div class="card-row"><span class="k">Public page</span><span class="v">${healthChip}</span></div>
+                                ${gaps.length ? `<div class="missing-line">Missing: ${escapeHtml(gaps.map(g => g.label).join(', '))}</div>` : ''}
                             </div>
                             <div class="card-actions">
+                                <button class="btn btn-outline" onclick="openShare('${prop.id}')">Share</button>
                                 <button class="btn btn-outline" onclick="editProperty('${prop.id}')">Edit</button>
                                 <button class="btn btn-danger" onclick="deleteProperty('${prop.id}')">Delete</button>
                             </div>
@@ -949,6 +1014,7 @@
                 tbody.innerHTML = rowsHtml;
                 cards.innerHTML = cardsHtml;
             } catch (err) { showToast(err.message, 'error'); }
+            renderHealthBanner();
         }
 
         function openPropertyModal() {
@@ -1408,6 +1474,212 @@
                 handleMediaPick(input, field);
             });
         });
+
+        // ==========================================
+        // 房源资料健康度
+        // ==========================================
+        // 每一项都对应公开网站上一个看得见的后果 —— 不是为了凑一个完整度分数。
+        // 缺了什么、客户那边会看到什么，写在 why 里，横幅上直接给经纪人看。
+        const HEALTH_CHECKS = [
+            { label: 'Photos',        why: 'card shows a placeholder image',
+              ok: p => !!String(p.image_url || '').trim() },
+            { label: 'Built-up size', why: 'no price per sq ft; left out of Price Insights',
+              ok: p => !!sqftRange(p.size_sqft) },
+            { label: 'Map location',  why: 'map can only show an approximate area',
+              ok: p => isFinite(parseFloat(p.lat)) && isFinite(parseFloat(p.lng)) },
+            { label: 'Bathrooms',     why: 'detail page shows a dash',
+              ok: p => !!String(p.bathrooms || '').trim() },
+            { label: 'Unit types',    why: 'no unit-type price table on the listing',
+              ok: p => Array.isArray(p.price_insights) && p.price_insights.length > 0 },
+            { label: 'Description',   why: 'description section is hidden',
+              ok: p => String(p.description || '').trim().length >= 40 },
+            { label: 'Highlight',     why: 'highlight section is hidden',
+              ok: p => !!String(p.property_highlight || '').trim() },
+        ];
+
+        function listingGaps(p) { return HEALTH_CHECKS.filter(c => !c.ok(p)); }
+
+        // 跟 index.html 的 parseSqftRange 同一套规则（没有 build step，只能各存一份）：
+        // 抓出所有数字，丢掉不像面积的，取最小与最大
+        function sqftRange(raw) {
+            if (!raw) return null;
+            const nums = String(raw).replace(/,/g, '').match(/\d+(?:\.\d+)?/g);
+            if (!nums) return null;
+            const vals = nums.map(Number).filter(n => n >= 100 && n <= 20000);
+            return vals.length ? { min: Math.min(...vals), max: Math.max(...vals) } : null;
+        }
+
+        function renderHealthBanner() {
+            const el = document.getElementById('healthBanner');
+            if (!el) return;
+            const needing = (allProperties || [])
+                .map(p => ({ p, gaps: listingGaps(p) }))
+                .filter(x => x.gaps.length)
+                .sort((a, b) => b.gaps.length - a.gaps.length);
+
+            if (!needing.length) { el.style.display = 'none'; return; }
+
+            el.style.display = 'block';
+            el.innerHTML =
+                `<b>${needing.length} listing${needing.length > 1 ? 's are' : ' is'} missing details your public site shows</b>` +
+                '<div style="font-size: 12px; margin: -4px 0 4px;">Each gap hides a section or blanks a number on the client-facing page.</div>' +
+                needing.map(({ p, gaps }) => `
+                    <button type="button" class="health-fix" onclick="editProperty('${p.id}')"
+                            title="${escapeHtml(gaps.map(g => g.label + ': ' + g.why).join('\n'))}">
+                        <div>
+                            <div style="font-weight: 700;">${escapeHtml(p.title)} <span>· ${gaps.length} missing</span></div>
+                            <span>${escapeHtml(gaps.map(g => g.label).join(' · '))}</span>
+                        </div>
+                        <strong style="color: var(--navy); white-space: nowrap;">Fix →</strong>
+                    </button>`).join('');
+        }
+
+        // ==========================================
+        // 房源分享包
+        // ==========================================
+        // 经纪人每天最常做的事，就是把房源丢给 WhatsApp 上的客户。
+        // 文案全部从资料库现有栏位组出来，不靠 AI —— 快、可预测、不会编数字。
+
+        // 一律用正式域名：经纪人有时会在 Vercel 的预览网址上操作，
+        // 那种网址要登入 Vercel 才看得到，丢给客户会打不开。
+        const PUBLIC_SITE = 'https://kareen-web.vercel.app';
+        const AGENT = { name: 'Kareen Loke', ren: 'REN 72111', wa: '60126501692' };
+
+        const ZH_LABELS = {
+            status: { 'Launching Soon': '即将推出', 'Completed': '现房' },
+            tenure: { 'Freehold': '永久地契', 'Leasehold': '租赁地契' }
+        };
+
+        let shareState = { id: null, lang: 'en', file: null };
+
+        function buildShareText(p, lang) {
+            const zh = lang === 'zh';
+            const price = Number(p.price) || 0;
+            const range = sqftRange(p.size_sqft);
+            const psf = range && price ? Math.round(price / range.min) : null;
+            const out = [];
+
+            out.push('🏙️ *' + p.title + '*');
+            if (p.location) out.push('📍 ' + p.location);
+            out.push('');
+
+            if (price) {
+                out.push('💰 ' + (zh ? '起价 RM ' : 'From RM ') + price.toLocaleString('en-MY') +
+                    (psf ? (zh ? '（每尺 RM ' + psf.toLocaleString('en-MY') + '）' : ' (RM ' + psf.toLocaleString('en-MY') + ' psf)') : ''));
+            }
+
+            const size = String(p.size_sqft || '').trim();
+            // 资料是自由输入的：有时写 "2 - 3 Beds"，有时只写 "3"。单独一个 3 读不懂，只有数字时补上单位
+            const withUnit = (v, unit) => { const t = String(v || '').trim(); return t && /^[\d\s\-–~]+$/.test(t) ? t + ' ' + unit : t; };
+            const specs = [withUnit(p.bedrooms, 'Beds'), withUnit(p.bathrooms, 'Baths'), size && (/sq\s*\.?\s*ft|sqft/i.test(size) ? size : size + ' sqft')]
+                .map(s => String(s || '').trim()).filter(Boolean);
+            if (specs.length) out.push('🛏️ ' + specs.join(' · '));
+
+            const tenure = zh ? (ZH_LABELS.tenure[p.tenure] || p.tenure) : p.tenure;
+            const status = zh ? (ZH_LABELS.status[p.status] || p.status) : p.status;
+            const meta = [tenure, status].filter(Boolean);
+            if (meta.length) out.push('📜 ' + meta.join(' · '));
+
+            if (p.property_highlight) { out.push(''); out.push('✨ ' + p.property_highlight); }
+
+            const types = Array.isArray(p.price_insights) ? p.price_insights : [];
+            if (types.length) {
+                out.push('');
+                out.push(zh ? '*户型*' : '*Unit types*');
+                types.slice(0, 6).forEach(t => {
+                    const tp = String(t.price || '').replace(/^RM\s*/i, '').trim();
+                    out.push('• ' + [t.type, t.layout, t.size].filter(Boolean).join(' · ') + (tp ? ' — RM ' + tp : ''));
+                });
+                if (types.length > 6) out.push(zh ? '…另有 ' + (types.length - 6) + ' 种户型' : '…and ' + (types.length - 6) + ' more');
+            }
+
+            out.push('');
+            out.push(zh ? '👉 图片、平面图与详情：' : '👉 Photos, floor plans & details:');
+            out.push(PUBLIC_SITE + '/#property/' + p.id);
+            out.push('');
+            out.push(AGENT.name + ' · ' + AGENT.ren);
+            out.push((zh ? '预约看房：' : 'Book a viewing: ') + 'wa.me/' + AGENT.wa);
+            return out.join('\n');
+        }
+
+        function openShare(id) {
+            const p = allProperties.find(x => x.id === id);
+            if (!p) { showToast('Listing not found. Try Refresh.', 'error'); return; }
+            shareState = { id: id, lang: shareState.lang || 'en', file: null };
+            document.getElementById('shareTitle').innerText = 'Share · ' + p.title;
+            setShareLang(shareState.lang);
+            openModal('shareModal');
+            prepareShareFile(p);
+        }
+
+        function setShareLang(lang) {
+            shareState.lang = lang;
+            document.querySelectorAll('.share-lang button').forEach(b =>
+                b.classList.toggle('active', b.getAttribute('data-lang') === lang));
+            const p = allProperties.find(x => x.id === shareState.id);
+            if (p) document.getElementById('shareText').value = buildShareText(p, lang);
+        }
+
+        // 先把封面照抓成档案备着。iOS Safari 只接受「点击当下」直接呼叫 navigator.share，
+        // 点了才去下载图片的话，下载完那一刻已经不算使用者操作，分享会被拒绝。
+        async function prepareShareFile(p) {
+            const note = document.getElementById('shareNote');
+            const base = 'Edit freely before sending. The link opens this listing directly on your site.';
+            note.innerText = base;
+            const cover = String(p.image_url || '').split(',')[0].trim();
+            if (!cover || !navigator.canShare) return;
+            try {
+                const res = await fetch(cover, { mode: 'cors' });
+                if (!res.ok) return;
+                const blob = await res.blob();
+                if (!blob.type.startsWith('image/')) return;
+                const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+                const file = new File([blob], 'listing.' + ext, { type: blob.type });
+                if (shareState.id !== p.id) return;   // 期间又换了别的房源
+                if (navigator.canShare({ files: [file] })) {
+                    shareState.file = file;
+                    note.innerText = base + ' "More…" also attaches the cover photo.';
+                }
+            } catch (err) {
+                // 图片在别的网域、不给跨域读取，就只分享文字
+                console.warn('Cover photo not attachable:', err);
+            }
+        }
+
+        async function copyShareText() {
+            const ta = document.getElementById('shareText');
+            try {
+                await navigator.clipboard.writeText(ta.value);
+            } catch (err) {
+                // 旧版浏览器或非安全环境没有 clipboard API
+                ta.select();
+                document.execCommand('copy');
+            }
+            showToast('Copied — paste it into any chat', 'success');
+        }
+
+        function openWhatsAppShare() {
+            // 不带号码的 wa.me 会让 WhatsApp 自己跳出「选择联络人」
+            const text = document.getElementById('shareText').value;
+            window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+        }
+
+        // 系统分享面板：WeChat、Telegram、WhatsApp Business、限时动态都在这里
+        async function shareNative() {
+            const text = document.getElementById('shareText').value;
+            if (!navigator.share) { copyShareText(); return; }
+            const payload = shareState.file ? { files: [shareState.file], text: text } : { text: text };
+            try {
+                await navigator.share(payload);
+            } catch (err) {
+                if (err && err.name === 'AbortError') return;   // 自己取消
+                // 有些 app 不收「图片 + 文字」，退回只给文字
+                if (shareState.file) {
+                    try { await navigator.share({ text: text }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+                }
+                copyShareText();
+            }
+        }
 
         function escapeHtml(str) { return str ? String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;") : ""; }
         function formatPhoneForWhatsApp(phone) { 
